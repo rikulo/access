@@ -55,7 +55,6 @@ Future access(command(DBAccess access)) {
     }
   });
 }
-const String _ATTR_ACCESS = "c.access";
 
 /** The database access.
  */

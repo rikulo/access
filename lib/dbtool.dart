@@ -117,22 +117,6 @@ SqlType Oid()
 
 SqlType AutoOid() => new SqlType('bigserial', 'not null primary key');
 
-SqlType ID() => Text();
-
-SqlType Name() => Text();
-
-SqlType Description() => Text();
-
-SqlType Email([String constraint=NOT_NULL]) => Text(constraint);
-
-SqlType Company() => Text();
-
-SqlType Website() => Text();
-
-SqlType Image() => Text();
-
-SqlType Color() => Text();
-
 SqlType Copy(Map<String, SqlType> source) => new CopyType(source);
 
 class _SqlType implements SqlType {
