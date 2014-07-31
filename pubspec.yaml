@@ -1,0 +1,15 @@
+name: access
+version: 0.3.0
+description: > 
+  A simple database utility for the entity library and PostgreSQL.
+authors:
+- Tom Yeh <tomyeh@rikulo.org>
+homepage: https://github.com/rikulo/access
+documentation: https://github.com/rikulo/access
+dev_dependencies:
+  unittest: any
+environment:
+  sdk: ">=1.4.0"
+dependencies:
+  entity: any
+  postgresql2: any
