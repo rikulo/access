@@ -46,7 +46,8 @@ Future access(command(DBAccess access)) {
   .then((_) => result)
   .catchError(
     (ex, st) => access._rollback()
-    .then((_) => new Future.error(ex, st))
+    .then((_) => new Future.error(ex, st)),
+    test: (ex) => access != null
   )
   .whenComplete(() {
     if (access != null) {
