@@ -67,6 +67,12 @@ bool _genCreateColumns(List<String> query, String otype,
     else query.add(',\n');
 
     final SqlType sqlType = table[col];
+
+    if (col.startsWith(DEFINE)) {
+      query.add(sqlType.toSqlString());
+      continue;
+    }
+
     query..add('"')..add(col)..add('" ');
     if (sqlType is ReferenceType) {
       final ReferenceType refType = sqlType;

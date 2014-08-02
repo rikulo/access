@@ -16,8 +16,14 @@ part "src/dbtool/dbtool_purge.dart";
 
 const String NOT_NULL = "not null", NULL = "null",
   ON_DELETE_CASCADE = "on delete cascade",
-  ON_DELETE_SET_NULL = "on delete set null",
-  COPY = ".copy.", COPY_1 = "$COPY.1", COPY_2 = "$COPY.2";
+  ON_DELETE_SET_NULL = "on delete set null";
+
+/** Builtin name for special actions.
+ */
+const String
+  COPY = ".copy.", COPY_1 = "$COPY.1", COPY_2 = "$COPY.2",
+  DEFINE = ".define",  DEFINE_1 = ".define.1",  DEFINE_2 = ".define.2",
+  DEFINE_3 = ".define.3";
 
 ///Represents a SQL type
 abstract class SqlType {
@@ -117,7 +123,19 @@ SqlType Oid()
 
 SqlType AutoOid() => new SqlType('bigserial', 'not null primary key');
 
+/** Copyies the definition from another [source].
+ * For example,
+ *
+ *     COPY: Copy(anotherTable),
+ */
 SqlType Copy(Map<String, SqlType> source) => new CopyType(source);
+
+/** Defines [definition], which is generated directly.
+ * For example,
+ *
+ *     DEFINE: Define('primary key("column1", "column2")'),
+ */
+SqlType Define(String definition) => new _DefineType(definition);
 
 class _SqlType implements SqlType {
   final String type;
@@ -129,6 +147,17 @@ class _SqlType implements SqlType {
   String toSqlString() => "$type $constraint";
   @override
   List toJson() => [type, constraint];
+}
+
+class _DefineType implements SqlType {
+  final String definition;
+
+  _DefineType(String this.definition);
+
+  @override
+  String toSqlString() => definition;
+  @override
+  List toJson() => [definition];
 }
 
 class _RefType implements ReferenceType {
