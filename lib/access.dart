@@ -7,6 +7,7 @@ import "dart:async";
 import "dart:convert" show JSON;
 import "dart:collection" show HashSet, HashMap;
 
+import "package:logging/logging.dart" show Logger;
 import "package:postgresql2/postgresql.dart";
 import "package:postgresql2/postgresql_pool.dart";
 import "package:entity/postgresql2.dart";
@@ -14,6 +15,8 @@ import "package:entity/entity.dart";
 
 export "package:postgresql2/postgresql.dart"
   show Connection, PgServerException, Row;
+
+final Logger _logger = new Logger("access");
 
 const String
   PG_DUPLICATE_TABLE = "42P07",
@@ -46,6 +49,7 @@ Future access(command(DBAccess access)) {
   .then((_) => result)
   .catchError(
     (ex, st) => access._rollback()
+    .catchError((ex2, st2) => _logger.warning("Failed to rollback", ex2, st2))
     .then((_) => new Future.error(ex, st)),
     test: (ex) => access != null
   )
