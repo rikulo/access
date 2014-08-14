@@ -20,7 +20,10 @@ Future create(Connection conn,
     (String name) => _createIndex(conn, name, indexes[name])))
   .then((_) => Future.forEach(rules.keys,
     (String name) => _createRule(conn, name, rules[name])))
-  .then((_) => conn.execute(script));
+  .then((_) {
+    if (script != null)
+      return conn.execute(script);
+   });
 }
 
 Future _createTable(Connection conn, String otype, Map<String, SqlType> table,
