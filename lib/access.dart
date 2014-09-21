@@ -210,7 +210,7 @@ class DBAccess extends PostgresqlAccess {
 
   ///Deletes the entity of the given [oid].
   Future<int> delete(String otype, String oid) {
-    uncache(oid);
+    uncache(otype, oid);
     return execute('delete from "$otype" where "$F_OID"=@$F_OID',
       {F_OID: oid});
   }

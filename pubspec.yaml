@@ -1,5 +1,5 @@
 name: access
-version: 0.3.3
+version: 0.5.0
 description: > 
   A simple database utility for the entity library and PostgreSQL.
 authors:
@@ -11,6 +11,6 @@ dev_dependencies:
 environment:
   sdk: ">=1.4.0"
 dependencies:
-  entity: any
+  entity: ">=0.7.0"
   postgresql2: any
   logging: any
