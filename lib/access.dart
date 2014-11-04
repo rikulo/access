@@ -72,7 +72,11 @@ class DBAccess extends PostgresqlAccess {
   /// affected by the SQL command.
   Future<int> execute(String sql, [values]) {
     assert(!_closed);
-    return conn.execute(sql, values);
+    return conn.execute(sql, values)
+    .catchError((ex, st) {
+      _logger.warning("Failed execute($sql, $values)", ex, st);
+      return new Future.error(ex, st);
+    });
   }
 
   /// Queue a SQL query to be run, returning a [Stream] of rows.
@@ -84,7 +88,11 @@ class DBAccess extends PostgresqlAccess {
   ///Returns the first result, or null if not found.
   Future<Row> queryAny(String sql, [values])
   => query(sql, values).first
-    .catchError((ex) => null, test: (ex) => ex is StateError);
+    .catchError((ex) => null, test: (ex) => ex is StateError)
+    .catchError((ex, st) {
+      _logger.warning("Failed query($sql, $values)", ex, st);
+      return new Future.error(ex, st);
+    });
 
   /** Queries [fields] of [otype] for the criteria specified in
    * [whereValues] (AND-ed together).
@@ -107,7 +115,11 @@ class DBAccess extends PostgresqlAccess {
     Map<String, dynamic> whereValues, [int option])
   => _queryBy(fields, otype, whereValues, option, "limit 1").first
     .then((Row row) => row)
-    .catchError((ex) => null, test: (ex) => ex is StateError);
+    .catchError((ex) => null, test: (ex) => ex is StateError)
+    .catchError((ex, st) {
+      _logger.warning("Failed queryBy($fields, $otype, $whereValues)", ex, st);
+      return new Future.error(ex, st);
+    });
 
   /** Queries [fields] of [otype] for the criteria specified in
    * [whereClause] and [whereValues].
@@ -124,7 +136,11 @@ class DBAccess extends PostgresqlAccess {
   Future<Row> queryAnyWith(Iterable<String> fields, String otype,
       String whereClause, [Map<String, dynamic> whereValues])
   => queryWith(fields, otype, whereClause, whereValues).first
-    .catchError((ex) => null, test: (ex) => ex is StateError);
+    .catchError((ex) => null, test: (ex) => ex is StateError)
+    .catchError((ex, st) {
+      _logger.warning("Failed queryWith($fields, $otype, $whereClause)", ex, st);
+      return new Future.error(ex, st);
+    });
 
   ///Loads the entity by the given [oid], or null if not found.
   Future<Entity> load(
@@ -181,7 +197,11 @@ class DBAccess extends PostgresqlAccess {
         (Entity entity, Set<String> fields, bool fu) => new Future.value(data),
         fields);
     })
-    .catchError((ex) => null, test: (ex) => ex is StateError);
+    .catchError((ex) => null, test: (ex) => ex is StateError)
+    .catchError((ex, st) {
+      _logger.warning("Failed load($fields, $whereClause)", ex, st);
+      return new Future.error(ex, st);
+    });
   }
 
   /** Loads all entities of the given AND criteria.
