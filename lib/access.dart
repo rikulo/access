@@ -114,7 +114,6 @@ class DBAccess extends PostgresqlAccess {
   Future<Row> queryAnyBy(Iterable<String> fields, String otype,
     Map<String, dynamic> whereValues, [int option])
   => _queryBy(fields, otype, whereValues, option, "limit 1").first
-    .then((Row row) => row)
     .catchError((ex) => null, test: (ex) => ex is StateError)
     .catchError((ex, st) {
       _logger.warning("Failed queryBy($fields, $otype, $whereValues)", ex, st);
@@ -160,6 +159,10 @@ class DBAccess extends PostgresqlAccess {
 
     final String otype = newInstance('*').otype;
     return queryWith(fds, otype, whereClause, whereValues).toList()
+    .catchError((ex, st) {
+      _logger.warning("Failed loadAll($fields, $whereClause, $whereValues)", ex, st);
+      return new Future.error(ex, st);
+    })
     .then((List<Row> rows) {
       final List<Entity> entities = [];
       return Future.forEach(rows,
@@ -190,17 +193,20 @@ class DBAccess extends PostgresqlAccess {
 
     final String otype = newInstance('*').otype;
     return queryWith(fds, otype, whereClause, whereValues).first
+    .catchError((ex) => null, test: (ex) => ex is StateError)
+    .catchError((ex, st) {
+      _logger.warning("Failed loadWith($fields, $whereClause)", ex, st);
+      return new Future.error(ex, st);
+    })
     .then((Row row) {
+      if (row == null)
+        return null;
+
       final Map<String, dynamic> data = new HashMap();
       row.forEach((String name, value) => data[name] = value);
       return loadIfAny_(this, data.remove(F_OID), newInstance,
         (Entity entity, Set<String> fields, bool fu) => new Future.value(data),
         fields);
-    })
-    .catchError((ex) => null, test: (ex) => ex is StateError)
-    .catchError((ex, st) {
-      _logger.warning("Failed load($fields, $whereClause)", ex, st);
-      return new Future.error(ex, st);
     });
   }
 
