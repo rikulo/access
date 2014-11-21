@@ -167,18 +167,29 @@ class DBAccess extends PostgresqlAccess {
       final List<Entity> entities = [];
       return Future.forEach(rows,
         (Row row) {
-          final Map<String, dynamic> data = new HashMap();
-          row.forEach((String name, value) => data[name] = value);
-
-          return loadIfAny_(this, data.remove(F_OID), newInstance,
-              (Entity e, Set<String> fds, bool fu) => new Future.value(data),
-              fields)
+          return toEntity(row, fields, newInstance)
           .then((Entity entity) {
             entities.add(entity);
           });
         })
       .then((_) => entities);
     });
+  }
+
+  /** Instantiates an Entity instance to represent the data in [row].
+   * If [row] is, this method will return `new Future.value(null)`.
+   */
+  Future<Entity> toEntity(Row row, Iterable<String> fields,
+      Entity newInstance(String oid)) {
+    if (row == null)
+      return new Future.value();
+
+    final Map<String, dynamic> data = new HashMap();
+    row.forEach((String name, value) => data[name] = value);
+    assert(data.containsKey(F_OID)); //F_OID is required.
+    return loadIfAny_(this, data.remove(F_OID), newInstance,
+        (Entity e, Set<String> fds, bool fu) => new Future.value(data),
+        fields);
   }
 
   ///Loads the first entity of the given criteria, or returns null if none.
@@ -198,16 +209,7 @@ class DBAccess extends PostgresqlAccess {
       _logger.warning("Failed loadWith($fields, $whereClause)", ex, st);
       return new Future.error(ex, st);
     })
-    .then((Row row) {
-      if (row == null)
-        return null;
-
-      final Map<String, dynamic> data = new HashMap();
-      row.forEach((String name, value) => data[name] = value);
-      return loadIfAny_(this, data.remove(F_OID), newInstance,
-        (Entity entity, Set<String> fields, bool fu) => new Future.value(data),
-        fields);
-    });
+    .then((Row row) => toEntity(row, fields, newInstance));
   }
 
   /** Loads all entities of the given AND criteria.
