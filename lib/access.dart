@@ -192,6 +192,53 @@ class DBAccess extends PostgresqlAccess {
         fields);
   }
 
+  /** Loads entities while [test] returns true.
+   * It stops loading if all entities are loaded or [test] returns false.
+   * 
+   * Note: the last entity passed to [test] will be in the returned list
+   * unless you remove it in [test]. (that is, `do ... while(test())`)
+   * 
+   * * [test] - it is called to test if the loading shall continue (true).
+   * When [test] is called, `lastLoaded` is the entity to test, and `loaded`
+   * is a list of all loaded entities, *including* `lastLoaded`
+   * (at the end of `loaded`).
+   * Though rare, you can modify `loaded` in [test], such as removing
+   * `lastLoaded` from `loaded`.
+   */
+  Future<List<Entity>> loadWhile(
+      Iterable<String> fields, Entity newInstance(String oid),
+      bool test(Entity lastLoaded, List<Entity> loaded),
+      String whereClause, [Map<String, dynamic> whereValues]) {
+
+    final Completer<List<Entity>> completer = new Completer();
+    final List<Entity> loaded = [];
+    final Stream<Row> stream = queryWith(
+        fields != null ? (new HashSet.from(fields)..add(F_OID)): null,
+        newInstance('*').otype, whereClause, whereValues);
+
+    StreamSubscription subscr;
+    bool found = false;
+    subscr = stream.listen(
+      (Row row) {
+        return toEntity(row, fields, newInstance)
+        .then((Entity e) {
+          loaded.add(e); //always add and add first
+
+          if (!test(e, loaded)) {
+            final result = subscr.cancel();
+            if (result is Future)
+              result.whenComplete(() => completer.complete(loaded));
+            else
+              completer.complete(loaded);
+          }
+        });
+      },
+      onError: (ex, st) => completer.completeError(ex, st),
+      onDone: () => completer.complete(loaded),
+      cancelOnError: true);
+    return completer.future;
+  }
+
   ///Loads the first entity of the given criteria, or returns null if none.
   Future<Entity> loadWith(
       Iterable<String> fields, Entity newInstance(String oid),
