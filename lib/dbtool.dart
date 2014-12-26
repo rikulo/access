@@ -102,11 +102,23 @@ SqlType Integer([String constraint=NOT_NULL])
 SqlType Smallint([String constraint=NOT_NULL])
 => new SqlType("smallint", constraint);
 
+SqlType Bigint([String constraint=NOT_NULL])
+=> new SqlType("bigint", constraint);
+
 SqlType Double([String constraint=NOT_NULL])
 => new SqlType("double precision", constraint);
 
+SqlType Real([String constraint=NOT_NULL])
+=> new SqlType("real", constraint);
+
 SqlType Boolean([String constraint=NOT_NULL])
 => new SqlType("boolean", constraint);
+
+SqlType Serial([String constraint=NOT_NULL])
+=> new SqlType("serial", constraint);
+
+SqlType Bigserial([String constraint=NOT_NULL])
+=> new SqlType("bigserial", constraint);
 
 SqlType Json([String constraint=NOT_NULL])
 => new SqlType("json", constraint);
