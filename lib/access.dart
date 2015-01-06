@@ -125,13 +125,23 @@ class DBAccess extends PostgresqlAccess {
    * 
    * > If you'd like *select-for-update*, you can put `for update`
    * or `for share` to [whereClause].
+   * 
+   * * [whereClause] - if null, no where clause is generated.
+   * That is, the whole table will be loaded.
    */
   Stream<Row> queryWith(Iterable<String> fields, String otype,
-      String whereClause, [Map<String, dynamic> whereValues])
-  => query('select ${_sqlCols(fields)} from "$otype" where $whereClause',
-      whereValues);
+      String whereClause, [Map<String, dynamic> whereValues]) {
+    String sql = 'select ${_sqlCols(fields)} from "$otype"';
+    if (whereClause != null)
+      sql += ' where $whereClause';
+    return query(sql, whereValues);
+  }
 
-  ///Returns the first result, or null if not found.
+  /** Returns the first result, or null if not found.
+   * 
+   * * [whereClause] - if null, no where clause is generated.
+   * That is, the whole table will be loaded.
+   */
   Future<Row> queryAnyWith(Iterable<String> fields, String otype,
       String whereClause, [Map<String, dynamic> whereValues])
   => queryWith(fields, otype, whereClause, whereValues).first
@@ -147,7 +157,11 @@ class DBAccess extends PostgresqlAccess {
       [int option])
   => loadIfAny(this, oid, newInstance, fields, option);
 
-  ///Loads all entities of the given criteria (never null).
+  /** Loads all entities of the given criteria (never null).
+   * 
+   * * [whereClause] - if null, no where clause is generated.
+   * That is, the whole table will be loaded.
+   */
   Future<List<Entity>> loadAllWith(
       Iterable<String> fields, Entity newInstance(String oid),
       String whereClause, [Map<String, dynamic> whereValues]) {
@@ -160,7 +174,7 @@ class DBAccess extends PostgresqlAccess {
     final String otype = newInstance('*').otype;
     return queryWith(fds, otype, whereClause, whereValues).toList()
     .catchError((ex, st) {
-      _logger.warning("Failed loadAll($fields, $whereClause, $whereValues)", ex, st);
+      _logger.warning("Failed loadAllWith($fields, $whereClause, $whereValues)", ex, st);
       return new Future.error(ex, st);
     })
     .then((List<Row> rows) {
@@ -204,6 +218,9 @@ class DBAccess extends PostgresqlAccess {
    * (at the end of `loaded`).
    * Though rare, you can modify `loaded` in [test], such as removing
    * `lastLoaded` from `loaded`.
+   * 
+   * * [whereClause] - if null, no where clause is generated.
+   * That is, the whole table will be loaded.
    */
   Future<List<Entity>> loadWhile(
       Iterable<String> fields, Entity newInstance(String oid),
@@ -239,7 +256,11 @@ class DBAccess extends PostgresqlAccess {
     return completer.future;
   }
 
-  ///Loads the first entity of the given criteria, or returns null if none.
+  /** Loads the first entity of the given criteria, or returns null if none.
+   * 
+   * * [whereClause] - if null, no where clause is generated.
+   * That is, the whole table will be loaded.
+   */
   Future<Entity> loadWith(
       Iterable<String> fields, Entity newInstance(String oid),
       String whereClause, [Map<String, dynamic> whereValues]) {
