@@ -234,7 +234,6 @@ class DBAccess extends PostgresqlAccess {
         newInstance('*').otype, whereClause, whereValues);
 
     StreamSubscription subscr;
-    bool found = false;
     subscr = stream.listen(
       (Row row) {
         return toEntity(row, fields, newInstance)
@@ -317,7 +316,7 @@ class DBAccess extends PostgresqlAccess {
    * * [types] - a map of (field-name, field-type). If specified,
    * the type of the field will be retrieved from [types], if any.
    * * [append] - the extra clause to append to the insert statement.
-   * Example, `returning "$F_OID"`
+   * Example, `insert(..., append: returning "$F_OID").then((oid) => ...)`
    */
   Future<dynamic> insert(String otype, Map<String, dynamic> data,
       {Map<String, String> types, String append}) {
@@ -344,9 +343,18 @@ class DBAccess extends PostgresqlAccess {
 
     sql.write(')');
     param.write(')');
-    if (append != null)
+    bool bReturning = false;
+    if (append != null) {
+      bReturning = append.trim().startsWith('returning');
       param..write(' ')..write(append);
-    return execute(sql.toString() + param.toString(), data);
+    }
+
+    sql.write(param);
+    final String stmt = sql.toString();
+    if (bReturning)
+      return query(stmt, data).first.then((Row r) => r[0]);
+
+    return execute(stmt, data);
   }
 
   //Begins a transaction
