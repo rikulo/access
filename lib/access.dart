@@ -70,6 +70,8 @@ class DBAccess extends PostgresqlAccess {
 
   DBAccess(Connection conn): super(conn, cache: true);
 
+  /** A map of application-specific data.
+   */
   Map<String, dynamic> get dataset
   => _dataset != null ? _dataset: MapUtil.onDemand(() => _dataset = new HashMap());
 
