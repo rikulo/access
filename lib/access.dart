@@ -12,6 +12,7 @@ import "package:postgresql2/postgresql.dart";
 import "package:postgresql2/postgresql_pool.dart";
 import "package:entity/postgresql2.dart";
 import "package:entity/entity.dart";
+import "package:rikulo_commons/util.dart";
 
 export "package:postgresql2/postgresql.dart"
   show Connection, PgServerException, Row;
@@ -64,9 +65,13 @@ Future access(command(DBAccess access)) {
 /** The database access.
  */
 class DBAccess extends PostgresqlAccess {
+  Map<String, dynamic> _dataset;
   bool _closed = false;
 
   DBAccess(Connection conn): super(conn, cache: true);
+
+  Map<String, dynamic> get dataset
+  => _dataset != null ? _dataset: MapUtil.onDemand(() => _dataset = new HashMap());
 
   /// Queues a command for execution, and when done, returns the number of rows
   /// affected by the SQL command.

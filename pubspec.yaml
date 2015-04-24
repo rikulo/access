@@ -1,5 +1,5 @@
 name: access
-version: 0.5.5
+version: 0.5.7
 description: > 
   A simple database utility for the entity library and PostgreSQL.
 authors:
@@ -14,3 +14,4 @@ dependencies:
   entity: ">=0.7.0"
   postgresql2: any
   logging: any
+  rikulo_commons: any
