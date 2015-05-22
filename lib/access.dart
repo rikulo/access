@@ -24,12 +24,23 @@ const String
   PG_FAILED_IN_TRANSACTION = "25P02",
   PG_UNDEFINED_OBJECT = "42704",
   PG_UNDEFINED_TABLE = "42P01",
-  PG_UNIQUE_VIOLATION = "23505";
+  PG_INTEGRITY_CONSTRAINT_VIOLATION = "23000",
+  PG_NOT_NULL_VIOLATION =  "23502",
+  PG_FOREIGN_KEY_VIOLATION = "23503",
+  PG_UNIQUE_VIOLATION = "23505",
+  PG_CHECK_VIOLATION = "23514";
+
+///Whether it is [PgServerException] about the violation of the given [code].
+bool isViolation(ex, String code)
+=> ex is PgServerException && ex.code == code;
 
 ///Whether it is [PgServerException] about the violation of uniqueness.
 ///It is useful with select-for-update
-bool isUniqueViolation(ex)
-=> ex is PgServerException && ex.code == PG_UNIQUE_VIOLATION;
+bool isUniqueViolation(ex) => isViolation(ex, PG_UNIQUE_VIOLATION);
+///Whether it is [PgServerException] about the violation of foreign keys.
+bool isForeignKeyViolation(ex) => isViolation(ex, PG_FOREIGN_KEY_VIOLATION);
+///Whether it is [PgServerException] about the violation of foreign keys.
+bool isNotNullViolation(ex) => isViolation(ex, PG_NOT_NULL_VIOLATION);
 
 /** Executes a command within a transaction.
  *
