@@ -149,7 +149,7 @@ class DBAccess extends PostgresqlAccess {
    */
   Stream<Row> queryWith(Iterable<String> fields, String otype,
       String whereClause, [Map<String, dynamic> whereValues]) {
-    String sql = 'select ${_sqlCols(fields)} from "$otype"';
+    String sql = 'select ${sqlColumns(fields)} from "$otype"';
     if (whereClause != null)
       sql += ' where $whereClause';
     return query(sql, whereValues);
@@ -394,8 +394,16 @@ List firstColumns(Iterable<Row> rows) {
   return result;
 }
 
-///Converts a list of [fields] to a SQL fragment separated by comma.
-String _sqlCols(Iterable<String> fields) {
+/** Converts a list of [fields] to a SQL fragment separated by comma.
+ * 
+ * Note: if [fields] is null, `"*"` is returned, i.e., all fields are assumed.
+ * if [fields] is empty, `1` is returned (so it is easier to construct a SQL statement).
+ * 
+ * Example,
+ * 
+ *     access.query('select ${sqlColumns(fields)} from "Foo"');
+ */
+String sqlColumns(Iterable<String> fields) {
   if (fields == null)
     return "*";
   if (fields.isEmpty)
