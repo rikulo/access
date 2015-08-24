@@ -67,8 +67,12 @@ class IndexInfo {
   final bool unique;
   final String table;
   final List<String> columns;
+  ///Types of index. For example, `gist` and `gin`.
+  ///If null, default is assumed.
+  final String using;
 
-  IndexInfo(String this.table, List<String> this.columns, {bool this.unique:false});
+  IndexInfo(String this.table, List<String> this.columns,
+    {bool this.unique:false, String this.using});
 
   List toJson() => [table, columns, unique];
 }
@@ -82,8 +86,9 @@ class RuleInfo {
   RuleInfo(String this.table, String this.rule);
 }
 
-IndexInfo Index(String table, List<String> columns, {bool unique:false})
-=> new IndexInfo(table, columns, unique: unique);
+IndexInfo Index(String table, List<String> columns,
+    {bool unique:false, String using})
+=> new IndexInfo(table, columns, unique: unique, using: using);
 RuleInfo Rule(String table, String rule)
 => new RuleInfo(table, rule);
 
@@ -122,6 +127,9 @@ SqlType Bigserial([String constraint=NOT_NULL])
 
 SqlType Json([String constraint=NOT_NULL])
 => new SqlType("json", constraint);
+
+SqlType Tsvector([String constraint=NOT_NULL])
+=> new SqlType("tsvector", constraint);
 
 SqlType Reference(String otype, [String constraint=NOT_NULL, String cascade=""])
 => new ReferenceType(otype, constraint, cascade);
