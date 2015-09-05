@@ -7,17 +7,13 @@ part of access.dbtool;
 Future purge(Connection conn,
     Map<String, Map<String, SqlType>> tables,
     Map<String, IndexInfo> indexes, Map<String, RuleInfo> rules) {
-  bool isUndefined(ex) {
-    return ex is PgServerException && (ex.code == PG_UNDEFINED_OBJECT
-      || ex.code == PG_UNDEFINED_TABLE);
-  }
 
   return Future.forEach(rules.keys,
     (String name) => conn.execute('drop rule "$name" on "${rules[name].table}"')
-    .catchError((ex) {}, test: isUndefined))
+    .catchError((ex) {}, test: _isUndefined))
   .then((_) => Future.forEach(indexes.keys.toList().reversed,
     (String name) => conn.execute('drop index "$name"')
-    .catchError((ex) {}, test: isUndefined)))
+    .catchError((ex) {}, test: _isUndefined)))
   .then((_) {
     final Set<String> tblsGened = new HashSet();
     final List<_DeferredRef> refsDeferred = [];
@@ -25,12 +21,12 @@ Future purge(Connection conn,
       _scanDeferredRefs(otype, tables[otype], tblsGened, refsDeferred);
     return Future.forEach(refsDeferred,
         (_DeferredRef defRef) => defRef.drop(conn)
-        .catchError((ex) {}, test: isUndefined));
+        .catchError((ex) {}, test: _isUndefined));
   })
   .then((_) => Future.forEach(
     tables.keys.toList().reversed,
     (String name) => conn.execute('drop table "$name"')
-    .catchError((ex) {}, test: isUndefined)
+    .catchError((ex) {}, test: _isUndefined)
   ));
 }
 
@@ -53,3 +49,6 @@ void _scanDeferredRefs(String otype, Map<String, SqlType> table,
     }
   }
 }
+
+bool _isUndefined(ex)
+=> isViolation(ex, PG_UNDEFINED_OBJECT) || isViolation(ex, PG_UNDEFINED_TABLE);

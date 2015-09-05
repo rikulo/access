@@ -4,18 +4,17 @@
 library access;
 
 import "dart:async";
-import "dart:convert" show JSON;
 import "dart:collection" show HashSet, HashMap;
 
 import "package:logging/logging.dart" show Logger;
 import "package:postgresql2/postgresql.dart";
-import "package:postgresql2/postgresql_pool.dart";
+import "package:postgresql2/pool.dart";
 import "package:entity/postgresql2.dart";
 import "package:entity/entity.dart";
 import "package:rikulo_commons/util.dart";
 
 export "package:postgresql2/postgresql.dart"
-  show Connection, PgServerException, Row;
+  show Connection, PostgresqlException, Row;
 
 final Logger _logger = new Logger("access");
 
@@ -30,16 +29,17 @@ const String
   PG_UNIQUE_VIOLATION = "23505",
   PG_CHECK_VIOLATION = "23514";
 
-///Whether it is [PgServerException] about the violation of the given [code].
+///Whether it is [PostgresqlException] about the violation of the given [code].
 bool isViolation(ex, String code)
-=> ex is PgServerException && ex.code == code;
+=> ex is PostgresqlException && ex.serverMessage != null
+    && ex.serverMessage.code == code;
 
-///Whether it is [PgServerException] about the violation of uniqueness.
+///Whether it is [PostgresqlException] about the violation of uniqueness.
 ///It is useful with select-for-update
 bool isUniqueViolation(ex) => isViolation(ex, PG_UNIQUE_VIOLATION);
-///Whether it is [PgServerException] about the violation of foreign keys.
+///Whether it is [PostgresqlException] about the violation of foreign keys.
 bool isForeignKeyViolation(ex) => isViolation(ex, PG_FOREIGN_KEY_VIOLATION);
-///Whether it is [PgServerException] about the violation of foreign keys.
+///Whether it is [PostgresqlException] about the violation of foreign keys.
 bool isNotNullViolation(ex) => isViolation(ex, PG_NOT_NULL_VIOLATION);
 
 /** Executes a command within a transaction.
@@ -448,39 +448,15 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [int option, String append])
   return where.toString();
 }
 
-/** Initializes the database access.
- *
- * > Note: it must be initialized before accessing any other methods.
+/** Sets the pool used to instantiate [DBAccess].
+ * 
+ * Note: it must be called with a non-null pool before calling [access].
+ * 
+ * * It returns the previous pool, if any.
  */
-Future initAccess(String dbUri, {int poolSize: 200}) {
-  endAccess();
-
-  _initFormatValue();
-  _pool = new Pool(dbUri, min: 10, max: poolSize);
-  return _pool.start();
-}
-/** Cleans up.
- *
- * To stop accessing, you can invoke this to return the connections
- * being pooled.
- */
-void endAccess() {
-  if (_pool != null) {
-    extendedFormatValue = _prevExtendedFormatValue;
-    final Pool pool = _pool;
-    _pool = null;
-    pool.destroy();
-  }
+Pool setPool(Pool pool) {
+  final p = _pool;
+  _pool = pool;
+  return p;
 }
 Pool _pool;
-
-void _initFormatValue() {
-  _prevExtendedFormatValue = extendedFormatValue;
-
-  extendedFormatValue = (value, String type, formatString(String s)) {
-    if (type == null)
-      return formatString(JSON.encode(value));
-    throw new Exception("Unsupported type as query parameters: $value ($type).");
-  };
-}
-Function _prevExtendedFormatValue;
