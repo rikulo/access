@@ -19,6 +19,9 @@ export "package:postgresql2/postgresql.dart"
 final Logger _logger = new Logger("access");
 
 const String
+  PG_SUCCESSFUL_COMPLETION = "00000",
+  PG_WARNING = "010000",
+  PG_NO_DATA = "020000",
   PG_DUPLICATE_TABLE = "42P07",
   PG_FAILED_IN_TRANSACTION = "25P02",
   PG_UNDEFINED_OBJECT = "42704",
