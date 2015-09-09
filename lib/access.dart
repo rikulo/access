@@ -92,7 +92,9 @@ class DBAccess extends PostgresqlAccess {
   /// Queues a command for execution, and when done, returns the number of rows
   /// affected by the SQL command.
   Future<int> execute(String sql, [values]) {
-    assert(!_closed);
+    if (_closed)
+      throw new StateError(sql);
+
     return conn.execute(sql, values)
     .catchError((ex, st) {
       _logger.warning("Failed execute($sql, $values)", ex, st);
@@ -102,7 +104,9 @@ class DBAccess extends PostgresqlAccess {
 
   /// Queue a SQL query to be run, returning a [Stream] of rows.
   Stream<Row> query(String sql, [values]) {
-    assert(!_closed);
+    if (_closed)
+      throw new StateError(sql);
+
     return conn.query(sql, values);
   }
 
