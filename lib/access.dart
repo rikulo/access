@@ -97,7 +97,7 @@ class DBAccess extends PostgresqlAccess {
 
     return conn.execute(sql, values)
     .catchError((ex, st) {
-      _logger.warning("Failed execute($sql, $values)", ex, st);
+      _logger.severe("Failed execute($sql, $values)", ex, st);
       return new Future.error(ex, st);
     });
   }
@@ -107,17 +107,35 @@ class DBAccess extends PostgresqlAccess {
     if (_closed)
       throw new StateError(sql);
 
-    return conn.query(sql, values);
+    final DateTime started = new DateTime.now();
+    final StreamController controller = new StreamController();
+    conn.query(sql, values)
+      .listen((Row data) => controller.add(data),
+        onError: (ex, st) {
+          _logger.severe("Failed query($sql, $values)", ex, st);
+          controller.addError(ex, st);
+        },
+        onDone: () {
+          controller.close();
+
+          if (_slowQuery != null) {
+            final Duration spent = new DateTime.now().difference(started);
+            if (spent > _slowQuery) {
+              if (_onSlowQuery != null)
+                _onSlowQuery(spent, sql, values);
+              else
+                _logger.warning('Slow SQL ($spent): query($sql, $values)');
+            }
+          }
+        },
+        cancelOnError: true);
+    return controller.stream;
   }
 
   ///Returns the first result, or null if not found.
   Future<Row> queryAny(String sql, [values])
   => query(sql, values).first
-    .catchError((ex) => null, test: (ex) => ex is StateError)
-    .catchError((ex, st) {
-      _logger.warning("Failed query($sql, $values)", ex, st);
-      return new Future.error(ex, st);
-    });
+    .catchError((ex) => null, test: (ex) => ex is StateError);
 
   /** Queries [fields] of [otype] for the criteria specified in
    * [whereValues] (AND-ed together).
@@ -139,11 +157,7 @@ class DBAccess extends PostgresqlAccess {
   Future<Row> queryAnyBy(Iterable<String> fields, String otype,
     Map<String, dynamic> whereValues, [int option])
   => _queryBy(fields, otype, whereValues, option, "limit 1").first
-    .catchError((ex) => null, test: (ex) => ex is StateError)
-    .catchError((ex, st) {
-      _logger.warning("Failed queryBy($fields, $otype, $whereValues)", ex, st);
-      return new Future.error(ex, st);
-    });
+    .catchError((ex) => null, test: (ex) => ex is StateError);
 
   /** Queries [fields] of [otype] for the criteria specified in
    * [whereClause] and [whereValues].
@@ -170,11 +184,7 @@ class DBAccess extends PostgresqlAccess {
   Future<Row> queryAnyWith(Iterable<String> fields, String otype,
       String whereClause, [Map<String, dynamic> whereValues])
   => queryWith(fields, otype, whereClause, whereValues).first
-    .catchError((ex) => null, test: (ex) => ex is StateError)
-    .catchError((ex, st) {
-      _logger.warning("Failed queryWith($fields, $otype, $whereClause)", ex, st);
-      return new Future.error(ex, st);
-    });
+    .catchError((ex) => null, test: (ex) => ex is StateError);
 
   ///Loads the entity by the given [oid], or null if not found.
   Future<Entity> load(
@@ -198,10 +208,6 @@ class DBAccess extends PostgresqlAccess {
 
     final String otype = newInstance('*').otype;
     return queryWith(fds, otype, whereClause, whereValues).toList()
-    .catchError((ex, st) {
-      _logger.warning("Failed loadAllWith($fields, $whereClause, $whereValues)", ex, st);
-      return new Future.error(ex, st);
-    })
     .then((List<Row> rows) {
       final List<Entity> entities = [];
       return Future.forEach(rows,
@@ -297,10 +303,6 @@ class DBAccess extends PostgresqlAccess {
     final String otype = newInstance('*').otype;
     return queryWith(fds, otype, whereClause, whereValues).first
     .catchError((ex) => null, test: (ex) => ex is StateError)
-    .catchError((ex, st) {
-      _logger.warning("Failed loadWith($fields, $whereClause)", ex, st);
-      return new Future.error(ex, st);
-    })
     .then((Row row) => toEntity(row, fields, newInstance));
   }
 
@@ -455,15 +457,28 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [int option, String append])
   return where.toString();
 }
 
-/** Sets the pool used to instantiate [DBAccess].
+/** Configures the access library.
  * 
- * Note: it must be called with a non-null pool before calling [access].
+ * Note: it must be called with a non-null pool before calling [access]
+ * to start a transaction.
+ * 
+ * * [pool] - the pool used to establish a connection
+ * * [slowQuery] - how long to consider a query is slow.
+ * It is used to detect if any slow SQL statement. Default: null (no detect).
+ * * [onSlowQuery] - if specified, it is called when a slow query is detected.
+ * If not, the SQL statement will be logged.
  * 
  * * It returns the previous pool, if any.
  */
-Pool setPool(Pool pool) {
+Pool configure(Pool pool, {Duration slowQuery,
+    void onSlowQuery(Duration timeSpent, String sql, Map<String, dynamic> values)}) {
   final p = _pool;
   _pool = pool;
+  _slowQuery = slowQuery;
+  _onSlowQuery = onSlowQuery;
   return p;
 }
 Pool _pool;
+Duration _slowQuery;
+typedef void _OnSlowQuery(Duration timeSpent, String sql, Map<String, dynamic> values);
+_OnSlowQuery _onSlowQuery;
