@@ -107,7 +107,7 @@ class DBAccess extends PostgresqlAccess {
     if (_closed)
       throw new StateError(sql);
 
-    final DateTime started = new DateTime.now();
+    final DateTime started = _slowQuery != null ? new DateTime.now(): null;
     final StreamController controller = new StreamController();
     conn.query(sql, values)
       .listen((Row data) => controller.add(data),
