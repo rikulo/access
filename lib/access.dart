@@ -91,18 +91,20 @@ class DBAccess extends PostgresqlAccess {
 
   /// Queues a command for execution, and when done, returns the number of rows
   /// affected by the SQL command.
+  @override
   Future<int> execute(String sql, [values]) {
     if (_closed)
       throw new StateError(sql);
 
     return conn.execute(sql, values)
     .catchError((ex, st) {
-      _logger.severe("Failed execute($sql, $values)", ex, st);
+      _logger.severe("Failed execute: ${_getErrorMessage(sql, values)}", ex, st);
       return new Future.error(ex, st);
     });
   }
 
   /// Queue a SQL query to be run, returning a [Stream] of rows.
+  @override
   Stream<Row> query(String sql, [values]) {
     if (_closed)
       throw new StateError(sql);
@@ -112,7 +114,7 @@ class DBAccess extends PostgresqlAccess {
     conn.query(sql, values)
       .listen((Row data) => controller.add(data),
         onError: (ex, st) {
-          _logger.severe("Failed query($sql, $values)", ex, st);
+          _logger.severe("Failed query: ${_getErrorMessage(sql, values)}", ex, st);
           controller.addError(ex, st);
         },
         onDone: () {
@@ -124,7 +126,7 @@ class DBAccess extends PostgresqlAccess {
               if (_onSlowQuery != null)
                 _onSlowQuery(spent, sql, values);
               else
-                _logger.warning('Slow SQL ($spent): query($sql, $values)');
+                _logger.warning('Slow SQL ($spent): ${_getErrorMessage(sql, values)}');
             }
           }
         },
@@ -467,18 +469,28 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [int option, String append])
  * It is used to detect if any slow SQL statement. Default: null (no detect).
  * * [onSlowQuery] - if specified, it is called when a slow query is detected.
  * If not, the SQL statement will be logged.
+ * * [getErrorMessage] - if specified, it is called to retrieve
+ * a human readable message of the given [sql] and [values] when an error occurs.
+ * Default: it returns a string concatenating [sql] and [values].
  * 
  * * It returns the previous pool, if any.
  */
 Pool configure(Pool pool, {Duration slowQuery,
-    void onSlowQuery(Duration timeSpent, String sql, Map<String, dynamic> values)}) {
+    void onSlowQuery(Duration timeSpent, String sql, Map<String, dynamic> values),
+    String getErrorMessage(String sql, values)}) {
   final p = _pool;
   _pool = pool;
   _slowQuery = slowQuery;
   _onSlowQuery = onSlowQuery;
+  _getErrorMessage = getErrorMessage ?? _defaultErrorMessage;
   return p;
 }
 Pool _pool;
 Duration _slowQuery;
+
 typedef void _OnSlowQuery(Duration timeSpent, String sql, Map<String, dynamic> values);
 _OnSlowQuery _onSlowQuery;
+
+typedef String _GetErrorMessage(String sql, values);
+_GetErrorMessage _getErrorMessage;
+String _defaultErrorMessage(String sql, values) => "$sql, $values";

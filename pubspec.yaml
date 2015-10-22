@@ -1,5 +1,5 @@
 name: access
-version: 0.6.6
+version: 0.6.7
 description: > 
   A simple database utility for the entity library and PostgreSQL.
 authors:
@@ -9,7 +9,7 @@ documentation: https://github.com/rikulo/access
 dev_dependencies:
   test: any
 environment:
-  sdk: ">=1.4.0"
+  sdk: ">=1.12.0"
 dependencies:
   entity: ">=0.7.0"
   postgresql2: any
