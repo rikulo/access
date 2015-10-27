@@ -100,7 +100,7 @@ class DBAccess extends PostgresqlAccess {
     .catchError((ex, st) {
       _logger.severe("Failed execute: ${_getErrorMessage(sql, values)}", ex, st);
       return new Future.error(ex, st);
-    });
+    }, test: _shallLog);
   }
 
   /// Queue a SQL query to be run, returning a [Stream] of rows.
@@ -114,7 +114,8 @@ class DBAccess extends PostgresqlAccess {
     conn.query(sql, values)
       .listen((Row data) => controller.add(data),
         onError: (ex, st) {
-          _logger.severe("Failed query: ${_getErrorMessage(sql, values)}", ex, st);
+          if (_shallLog(ex))
+            _logger.severe("Failed query: ${_getErrorMessage(sql, values)}", ex, st);
           controller.addError(ex, st);
         },
         onDone: () {
@@ -472,17 +473,21 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [int option, String append])
  * * [getErrorMessage] - if specified, it is called to retrieve
  * a human readable message of the given [sql] and [values] when an error occurs.
  * Default: it returns a string concatenating [sql] and [values].
+ * * [shallLog] - test if the given exception shall be logged.
+ * Default: always true. You can turn the log off by returning false.
  * 
  * * It returns the previous pool, if any.
  */
 Pool configure(Pool pool, {Duration slowQuery,
     void onSlowQuery(Duration timeSpent, String sql, Map<String, dynamic> values),
-    String getErrorMessage(String sql, values)}) {
+    String getErrorMessage(String sql, values),
+    bool shallLog(ex)}) {
   final p = _pool;
   _pool = pool;
   _slowQuery = slowQuery;
   _onSlowQuery = onSlowQuery;
   _getErrorMessage = getErrorMessage ?? _defaultErrorMessage;
+  _shallLog = shallLog ?? _defaultShallLog;
   return p;
 }
 Pool _pool;
@@ -494,3 +499,7 @@ _OnSlowQuery _onSlowQuery;
 typedef String _GetErrorMessage(String sql, values);
 _GetErrorMessage _getErrorMessage;
 String _defaultErrorMessage(String sql, values) => "$sql, $values";
+
+typedef bool _ShallLog(ex);
+_ShallLog _shallLog;
+bool _defaultShallLog(ex) => true;
