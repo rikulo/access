@@ -99,12 +99,12 @@ Future _createIndex(Connection conn, String name, IndexInfo info) {
   if (info.unique)
     query.add('unique ');
   query..add('index "')..add(name)..add('" on "')
-    ..add(info.table);
+    ..add(info.table)..add('"');
 
   if (info.using != null)
-    query..add(' using ')..add(info.using);
+    query..add(' using ')..add(info.using)..add(' ');
 
-  query.add('"(');
+  query.add('(');
 
   bool first = true;
   for (final String col in info.columns) {

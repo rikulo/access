@@ -1,5 +1,5 @@
 name: access
-version: 0.6.8
+version: 0.6.9
 description: > 
   A simple database utility for the entity library and PostgreSQL.
 authors:
