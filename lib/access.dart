@@ -107,10 +107,10 @@ class DBAccess extends PostgresqlAccess {
   @override
   Stream<Row> query(String sql, [values]) {
     if (_closed)
-      throw new StateError(sql);
+      throw new StateError("Closed: ${_getErrorMessage(sql, values)}");
 
-    final DateTime started = _slowQuery != null ? new DateTime.now(): null;
     final StreamController controller = new StreamController();
+    final DateTime started = _slowQuery != null ? new DateTime.now(): null;
     conn.query(sql, values)
       .listen((Row data) => controller.add(data),
         onError: (ex, st) {
