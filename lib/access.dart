@@ -96,8 +96,19 @@ class DBAccess extends PostgresqlAccess {
     if (_closed)
       throw new StateError(sql);
 
-    return conn.execute(sql, values)
-    .catchError((ex, st) {
+    Future op;
+    if (_slowSql != null) {
+      final DateTime started = new DateTime.now();
+      op = conn.execute(sql, values)
+        .then((result) {
+          _checkSlowSql(started, sql, values);
+          return result;
+        });
+    } else {
+      op = conn.execute(sql, values);
+    }
+
+    return op.catchError((ex, st) {
       _logger.severe("Failed execute: ${_getErrorMessage(sql, values)}", ex, st);
       return new Future.error(ex, st);
     }, test: _shallLog);
@@ -110,7 +121,7 @@ class DBAccess extends PostgresqlAccess {
       throw new StateError("Closed: ${_getErrorMessage(sql, values)}");
 
     final StreamController controller = new StreamController();
-    final DateTime started = _slowQuery != null ? new DateTime.now(): null;
+    final DateTime started = _slowSql != null ? new DateTime.now(): null;
     conn.query(sql, values)
       .listen((Row data) => controller.add(data),
         onError: (ex, st) {
@@ -121,15 +132,8 @@ class DBAccess extends PostgresqlAccess {
         onDone: () {
           controller.close();
 
-          if (_slowQuery != null) {
-            final Duration spent = new DateTime.now().difference(started);
-            if (spent > _slowQuery) {
-              if (_onSlowQuery != null)
-                _onSlowQuery(spent, sql, values);
-              else
-                _logger.warning('Slow SQL ($spent): ${_getErrorMessage(sql, values)}');
-            }
-          }
+          if (_slowSql != null)
+            _checkSlowSql(started, sql, values);
         },
         cancelOnError: true);
     return controller.stream;
@@ -466,9 +470,9 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [int option, String append])
  * to start a transaction.
  * 
  * * [pool] - the pool used to establish a connection
- * * [slowQuery] - how long to consider a query is slow.
+ * * [slowSql] - how long to consider a query or an execution is slow.
  * It is used to detect if any slow SQL statement. Default: null (no detect).
- * * [onSlowQuery] - if specified, it is called when a slow query is detected.
+ * * [onSlowSql] - if specified, it is called when a slow query is detected.
  * If not, the SQL statement will be logged.
  * * [getErrorMessage] - if specified, it is called to retrieve
  * a human readable message of the given [sql] and [values] when an error occurs.
@@ -478,23 +482,34 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [int option, String append])
  * 
  * * It returns the previous pool, if any.
  */
-Pool configure(Pool pool, {Duration slowQuery,
-    void onSlowQuery(Duration timeSpent, String sql, Map<String, dynamic> values),
+Pool configure(Pool pool, {Duration slowSql,
+    void onSlowSql(Duration timeSpent, String sql, Map<String, dynamic> values),
     String getErrorMessage(String sql, values),
     bool shallLog(ex)}) {
   final p = _pool;
   _pool = pool;
-  _slowQuery = slowQuery;
-  _onSlowQuery = onSlowQuery;
+  _slowSql = slowSql;
+  _onSlowSql = onSlowSql;
   _getErrorMessage = getErrorMessage ?? _defaultErrorMessage;
   _shallLog = shallLog ?? _defaultShallLog;
   return p;
 }
 Pool _pool;
-Duration _slowQuery;
+Duration _slowSql;
 
-typedef void _OnSlowQuery(Duration timeSpent, String sql, Map<String, dynamic> values);
-_OnSlowQuery _onSlowQuery;
+///Checks if it is slow. If so, logs it.
+void _checkSlowSql(DateTime started, String sql, [values]) {
+  final Duration spent = new DateTime.now().difference(started);
+  if (spent > _slowSql) {
+    if (_onSlowSql != null)
+      _onSlowSql(spent, sql, values);
+    else
+      _logger.warning('Slow SQL ($spent): ${_getErrorMessage(sql, values)}');
+  }
+}
+
+typedef void _OnSlowSql(Duration timeSpent, String sql, Map<String, dynamic> values);
+_OnSlowSql _onSlowSql;
 
 typedef String _GetErrorMessage(String sql, values);
 _GetErrorMessage _getErrorMessage;
