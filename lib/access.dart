@@ -80,6 +80,7 @@ Future access(command(DBAccess access)) {
  */
 class DBAccess extends PostgresqlAccess {
   Map<String, dynamic> _dataset;
+  var _tag;
   bool _closed = false;
 
   DBAccess(Connection conn): super(conn, cache: true);
@@ -89,12 +90,22 @@ class DBAccess extends PostgresqlAccess {
   Map<String, dynamic> get dataset
   => _dataset != null ? _dataset: MapUtil.auto(() => _dataset = new HashMap());
 
+  ///Tags the next SQL statement in this access (aka., transaction).
+  ///Once tagged, [onTag] will be called in the next invocation
+  ///of [query] or [execute]. If [onTag] is not specified, the SQL statement
+  ///is simply logged.
+  void tag(cause) {
+    _tag = cause;
+  }
+
   /// Queues a command for execution, and when done, returns the number of rows
   /// affected by the SQL command.
   @override
   Future<int> execute(String sql, [values]) {
     if (_closed)
       throw new StateError(sql);
+
+    _checkTag(sql, values);
 
     Future op;
     if (_slowSql != null) {
@@ -111,7 +122,7 @@ class DBAccess extends PostgresqlAccess {
     return op.catchError((ex, st) {
       _logger.severe("Failed execute: ${_getErrorMessage(sql, values)}", ex, st);
       return new Future.error(ex, st);
-    }, test: _shallLog);
+    }, test: _shallLogError);
   }
 
   /// Queue a SQL query to be run, returning a [Stream] of rows.
@@ -120,12 +131,14 @@ class DBAccess extends PostgresqlAccess {
     if (_closed)
       throw new StateError("Closed: ${_getErrorMessage(sql, values)}");
 
+    _checkTag(sql, values);
+
     final StreamController controller = new StreamController();
     final DateTime started = _slowSql != null ? new DateTime.now(): null;
     conn.query(sql, values)
       .listen((Row data) => controller.add(data),
         onError: (ex, st) {
-          if (_shallLog(ex))
+          if (_shallLogError(ex))
             _logger.severe("Failed query: ${_getErrorMessage(sql, values)}", ex, st);
           controller.addError(ex, st);
         },
@@ -137,6 +150,29 @@ class DBAccess extends PostgresqlAccess {
         },
         cancelOnError: true);
     return controller.stream;
+  }
+
+  ///Check if it is tagged.
+  void _checkTag(String sql, [values]) {
+    if (_tag != null) {
+      final tag = _tag;
+      _tag = null; //do it only once
+      if (_onTag != null)
+        _onTag(tag, sql, values);
+      else
+        _logger.warning('[$tag] SQL: ${_defaultErrorMessage(sql, values)}');
+    }
+  }
+  ///Checks if it is slow. If so, logs it.
+  void _checkSlowSql(DateTime started, String sql, [values]) {
+    final Duration spent = new DateTime.now().difference(started);
+    if (spent > _slowSql) {
+      tag("after slow");
+      if (_onSlowSql != null)
+        _onSlowSql(spent, sql, values);
+      else
+        _logger.warning('Slow SQL ($spent): ${_getErrorMessage(sql, values)}');
+    }
   }
 
   ///Returns the first result, or null if not found.
@@ -477,7 +513,11 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [int option, String append])
  * * [getErrorMessage] - if specified, it is called to retrieve
  * a human readable message of the given [sql] and [values] when an error occurs.
  * Default: it returns a string concatenating [sql] and [values].
- * * [shallLog] - test if the given exception shall be logged.
+ * * [onTag] - once [tag] is called (with a non-null value), [onTag]
+ * will be called in the next invocation of [execute] or [query]
+ * (i.e., the next SQL statement). If not specified, the SQL statement
+ * is simply logged.
+ * * [shallLogError] - test if the given exception shall be logged.
  * Default: always true. You can turn the log off by returning false.
  * 
  * * It returns the previous pool, if any.
@@ -485,36 +525,29 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [int option, String append])
 Pool configure(Pool pool, {Duration slowSql,
     void onSlowSql(Duration timeSpent, String sql, Map<String, dynamic> values),
     String getErrorMessage(String sql, values),
-    bool shallLog(ex)}) {
+    void onTag(cause, String sql, Map<String, dynamic> values),
+    bool shallLogError(ex)}) {
   final p = _pool;
   _pool = pool;
   _slowSql = slowSql;
   _onSlowSql = onSlowSql;
   _getErrorMessage = getErrorMessage ?? _defaultErrorMessage;
-  _shallLog = shallLog ?? _defaultShallLog;
+  _shallLogError = shallLogError ?? _defaultShallLog;
   return p;
 }
 Pool _pool;
 Duration _slowSql;
 
-///Checks if it is slow. If so, logs it.
-void _checkSlowSql(DateTime started, String sql, [values]) {
-  final Duration spent = new DateTime.now().difference(started);
-  if (spent > _slowSql) {
-    if (_onSlowSql != null)
-      _onSlowSql(spent, sql, values);
-    else
-      _logger.warning('Slow SQL ($spent): ${_getErrorMessage(sql, values)}');
-  }
-}
-
 typedef void _OnSlowSql(Duration timeSpent, String sql, Map<String, dynamic> values);
 _OnSlowSql _onSlowSql;
+
+typedef void _OnTag(cause, String sql, Map<String, dynamic> values);
+_OnTag _onTag;
 
 typedef String _GetErrorMessage(String sql, values);
 _GetErrorMessage _getErrorMessage;
 String _defaultErrorMessage(String sql, values) => "$sql, $values";
 
 typedef bool _ShallLog(ex);
-_ShallLog _shallLog;
+_ShallLog _shallLogError;
 bool _defaultShallLog(ex) => true;
