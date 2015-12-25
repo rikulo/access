@@ -52,7 +52,7 @@ bool isNotNullViolation(ex) => isViolation(ex, PG_NOT_NULL_VIOLATION);
  * Unlike [DBAccess.begin], this method will commit and rollback automatically.
  */
 Future access(command(DBAccess access)) {
-  var result;
+  var result, error;
   DBAccess access;
   return _pool.connect()
   .then((Connection conn) {
@@ -63,24 +63,30 @@ Future access(command(DBAccess access)) {
   .then((_) => access._commit())
   .then((_) => result)
   .catchError(
-    (ex, st) => access._rollback()
-    .catchError((ex2, st2) => _logger.warning("Failed to rollback", ex2, st2))
-    .then((_) => new Future.error(ex, st)),
+    (ex, st) {
+      error = ex;
+      return access._rollback()
+      .catchError((ex2, st2) => _logger.warning("Failed to rollback", ex2, st2))
+      .then((_) => new Future.error(ex, st));
+    },
     test: (ex) => access != null
   )
   .whenComplete(() {
     if (access != null) {
-      access._closed = true;
+      access._onClose(error);
       access.conn.close();
     }
   });
 }
+
+typedef void _Task(error);
 
 /** The database access.
  */
 class DBAccess extends PostgresqlAccess {
   Map<String, dynamic> _dataset;
   var _tag;
+  List<_Task> _tasks;
   bool _closed = false;
 
   DBAccess(Connection conn): super(conn, cache: true);
@@ -102,6 +108,33 @@ class DBAccess extends PostgresqlAccess {
   ///is simply logged.
   void tag(cause) {
     _tag = cause;
+  }
+
+  /** Adds a task that will be executed after the end of the transaction.
+   * 
+   * The [error] argument will be the exception being caught if there is
+   * one. It is null if success.
+   */
+  void after(void task(error)) {
+    assert(task != null);
+    if (_closed)
+      throw new StateError("closed");
+
+    if (_tasks == null)
+      _tasks = [];
+    _tasks.add(task);
+  }
+  void _onClose(error) {
+    _closed = true;
+
+    if (_tasks != null)
+      for (final _Task task in _tasks) {
+        try {
+          task(error);
+        } catch (ex, st) {
+          _logger.warning("Failed to invoke $task", ex, st);
+        }
+      }
   }
 
   /// Queues a command for execution, and when done, returns the number of rows
