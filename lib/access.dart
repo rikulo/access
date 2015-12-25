@@ -85,6 +85,12 @@ class DBAccess extends PostgresqlAccess {
 
   DBAccess(Connection conn): super(conn, cache: true);
 
+  /** How long to consider the query or execution of a SQL statement is slow.
+   * If omitted, the value specified in [configure] is used.
+   */
+  Duration slowSql;
+  Duration get _realSlowSql => slowSql ?? _slowSql;
+
   /** A map of application-specific data.
    */
   Map<String, dynamic> get dataset
@@ -108,7 +114,7 @@ class DBAccess extends PostgresqlAccess {
     _checkTag(sql, values);
 
     Future op;
-    if (_slowSql != null) {
+    if (_realSlowSql != null) {
       final DateTime started = new DateTime.now();
       op = conn.execute(sql, values)
         .then((result) {
@@ -134,7 +140,7 @@ class DBAccess extends PostgresqlAccess {
     _checkTag(sql, values);
 
     final StreamController controller = new StreamController();
-    final DateTime started = _slowSql != null ? new DateTime.now(): null;
+    final DateTime started = _realSlowSql != null ? new DateTime.now(): null;
     conn.query(sql, values)
       .listen((Row data) => controller.add(data),
         onError: (ex, st) {
@@ -145,7 +151,7 @@ class DBAccess extends PostgresqlAccess {
         onDone: () {
           controller.close();
 
-          if (_slowSql != null)
+          if (started != null)
             _checkSlowSql(started, sql, values);
         },
         cancelOnError: true);
@@ -166,7 +172,8 @@ class DBAccess extends PostgresqlAccess {
   ///Checks if it is slow. If so, logs it.
   void _checkSlowSql(DateTime started, String sql, [values]) {
     final Duration spent = new DateTime.now().difference(started);
-    if (spent > _slowSql) {
+    final Duration threshold = _realSlowSql;
+    if (threshold != null && spent > threshold) {
       tag("after slow");
       if (_onSlowSql != null)
         _onSlowSql(spent, sql, values);
