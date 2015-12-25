@@ -72,10 +72,7 @@ Future access(command(DBAccess access)) {
     test: (ex) => access != null
   )
   .whenComplete(() {
-    if (access != null) {
-      access._onClose(error);
-      access.conn.close();
-    }
+    access?._close(error);
   });
 }
 
@@ -124,8 +121,14 @@ class DBAccess extends PostgresqlAccess {
       _tasks = [];
     _tasks.add(task);
   }
-  void _onClose(error) {
+
+  void _close(error) {
     _closed = true;
+    try {
+      conn.close();
+    } catch (ex, st) {
+      _logger.warning("Failed to close", ex, st);
+    }
 
     if (_tasks != null)
       for (final _Task task in _tasks) {
