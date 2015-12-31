@@ -46,31 +46,46 @@ bool isForeignKeyViolation(ex) => isViolation(ex, PG_FOREIGN_KEY_VIOLATION);
 bool isNotNullViolation(ex) => isViolation(ex, PG_NOT_NULL_VIOLATION);
 
 /** Executes a command within a transaction.
+ * 
+ *    access((DBAccess access) async {
+ *      final rows = await access.query('select ...').toList();
+ *      ...
+ *      await access.execute('update...');
+ *    })
+ *    //The transaction ends here. It commits if success,
+ *    //Or, rolls back if an exception is thrown or [DBAccess.rollingback]
+ *    //is set to true.
+ *    .catchError((ex, st) {
+ *      ...
+ *    });
  *
  * It returns what was returned by [command].
- * 
- * Unlike [DBAccess.begin], this method will commit and rollback automatically.
  */
 Future access(command(DBAccess access)) {
   var result, error;
+  bool closing = false;
   DBAccess access;
+
   return _pool.connect()
   .then((Connection conn) {
-    access = new DBAccess(conn);
+    access = new DBAccess._(conn);
     return access._begin();
   })
   .then((_) => result = command(access))
-  .then((_) => access._commit())
+  .then((_) {
+    closing = true;
+    return access.rollingback ? access._rollback(): access._commit();
+  })
   .then((_) => result)
-  .catchError(
-    (ex, st) {
-      error = ex;
-      return access._rollback()
-      .catchError((ex2, st2) => _logger.warning("Failed to rollback", ex2, st2))
-      .then((_) => new Future.error(ex, st));
-    },
-    test: (ex) => access != null
-  )
+  .catchError((ex, st) {
+    error = ex;
+    if (access == null || closing)
+      return new Future.error(ex, st);
+
+    return access._rollback()
+    .catchError((ex2, st2) => _logger.warning("Failed to rollback", ex2, st2))
+    .then((_) => new Future.error(ex, st));
+  })
   .whenComplete(() {
     access?._close(error);
   });
@@ -79,6 +94,7 @@ Future access(command(DBAccess access)) {
 typedef void _Task(error);
 
 /** The database access.
+ * It is designed to used with [access].
  */
 class DBAccess extends PostgresqlAccess {
   Map<String, dynamic> _dataset;
@@ -86,7 +102,15 @@ class DBAccess extends PostgresqlAccess {
   List<_Task> _tasks;
   bool _closed = false;
 
-  DBAccess(Connection conn): super(conn, cache: true);
+  /**
+   * A flag to indicate the access (aka., the transaction) shall
+   * be rolled back at the end. By default, [access] rolls back
+   * only if an exception is thrown. To force it roll back, you
+   * can set this flag to true.
+   */
+  bool rollingback = false;
+
+  DBAccess._(Connection conn): super(conn, cache: true);
 
   /** How long to consider the query or execution of a SQL statement is slow.
    * If omitted, the value specified in [configure] is used.
