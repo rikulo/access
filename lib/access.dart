@@ -277,10 +277,18 @@ class DBAccess extends PostgresqlAccess {
    * 
    * * [whereClause] - if null, no where clause is generated.
    * That is, the whole table will be loaded.
+   * Note: it shall not include `where`.
+   * Example: `"$F_REMOVED_AT" is not null`
+   * * [fromClause] - if null, the entity's table is assumed.
+   * Note: it shall not include `from`.
+   * Example: `"$OT_TASK" inner join "$OT_ASSIGNEE"`
+   * 
+   * Note: if [fromClause] is specified, [otype] is ignored.
    */
   Stream<Row> queryWith(Iterable<String> fields, String otype,
-      String whereClause, [Map<String, dynamic> whereValues]) {
-    String sql = 'select ${sqlColumns(fields)} from "$otype"';
+      String whereClause, [Map<String, dynamic> whereValues, String fromClause]) {
+    String sql = 'select ${sqlColumns(fields)} from ';
+    sql += fromClause != null ? fromClause: '"$otype"';
     if (whereClause != null)
       sql += ' where $whereClause';
     return query(sql, whereValues);
@@ -290,10 +298,15 @@ class DBAccess extends PostgresqlAccess {
    * 
    * * [whereClause] - if null, no where clause is generated.
    * That is, the whole table will be loaded.
+   * Note: it shall not include `where`.
+   * Example: `"$F_REMOVED_AT" is not null`
+   * * [fromClause] - if null, the entity's table is assumed.
+   * Note: it shall not include `from`.
+   * Example: `"$OT_TASK" inner join "$OT_ASSIGNEE"`
    */
   Future<Row> queryAnyWith(Iterable<String> fields, String otype,
-      String whereClause, [Map<String, dynamic> whereValues])
-  => queryWith(fields, otype, whereClause, whereValues).first
+      String whereClause, [Map<String, dynamic> whereValues, String fromClause])
+  => queryWith(fields, otype, whereClause, whereValues, fromClause).first
     .catchError((ex) => null, test: (ex) => ex is StateError);
 
   ///Loads the entity by the given [oid], or null if not found.
@@ -306,18 +319,23 @@ class DBAccess extends PostgresqlAccess {
    * 
    * * [whereClause] - if null, no where clause is generated.
    * That is, the whole table will be loaded.
+   * Note: it shall not include `where`.
+   * Example: `"$F_REMOVED_AT" is not null`
+   * * [fromClause] - if null, the entity's table is assumed.
+   * Note: it shall not include `from`.
+   * Example: `"$OT_TASK" inner join "$OT_ASSIGNEE"`
    */
   Future<List<Entity>> loadAllWith(
       Iterable<String> fields, Entity newInstance(String oid),
-      String whereClause, [Map<String, dynamic> whereValues]) {
+      String whereClause, [Map<String, dynamic> whereValues, String fromClause]) {
     Set<String> fds;
     if (fields != null) {
       fds = new HashSet();
       fds..add(F_OID)..addAll(fields);
     }
 
-    final String otype = newInstance('*').otype;
-    return queryWith(fds, otype, whereClause, whereValues).toList()
+    return queryWith(fds, fromClause != null ? null: newInstance('*').otype,
+        whereClause, whereValues, fromClause).toList()
     .then((List<Row> rows) {
       final List<Entity> entities = [];
       return Future.forEach(rows,
@@ -362,17 +380,23 @@ class DBAccess extends PostgresqlAccess {
    * 
    * * [whereClause] - if null, no where clause is generated.
    * That is, the whole table will be loaded.
+   * Note: it shall not include `where`.
+   * Example: `"$F_REMOVED_AT" is not null`
+   * * [fromClause] - if null, the entity's table is assumed.
+   * Note: it shall not include `from`.
+   * Example: `"$OT_TASK" inner join "$OT_ASSIGNEE"`
    */
   Future<List<Entity>> loadWhile(
       Iterable<String> fields, Entity newInstance(String oid),
       bool test(Entity lastLoaded, List<Entity> loaded),
-      String whereClause, [Map<String, dynamic> whereValues]) {
+      String whereClause, [Map<String, dynamic> whereValues, String fromClause]) {
 
     final Completer<List<Entity>> completer = new Completer();
     final List<Entity> loaded = [];
     final Stream<Row> stream = queryWith(
         fields != null ? (new HashSet.from(fields)..add(F_OID)): null,
-        newInstance('*').otype, whereClause, whereValues);
+        fromClause != null ? null: newInstance('*').otype,
+        whereClause, whereValues, fromClause);
 
     StreamSubscription subscr;
     subscr = stream.listen(
@@ -400,18 +424,23 @@ class DBAccess extends PostgresqlAccess {
    * 
    * * [whereClause] - if null, no where clause is generated.
    * That is, the whole table will be loaded.
+   * Note: it shall not include `where`.
+   * Example: `"$F_REMOVED_AT" is not null`
+   * * [fromClause] - if null, the entity's table is assumed.
+   * Note: it shall not include `from`.
+   * Example: `"$OT_TASK" inner join "$OT_ASSIGNEE"`
    */
   Future<Entity> loadWith(
       Iterable<String> fields, Entity newInstance(String oid),
-      String whereClause, [Map<String, dynamic> whereValues]) {
+      String whereClause, [Map<String, dynamic> whereValues, String fromClause]) {
     Set<String> fds;
     if (fields != null) {
       fds = new HashSet();
       fds..add(F_OID)..addAll(fields);
     }
 
-    final String otype = newInstance('*').otype;
-    return queryWith(fds, otype, whereClause, whereValues).first
+    return queryWith(fds, fromClause != null ? null: newInstance('*').otype,
+        whereClause, whereValues, fromClause).first
     .catchError((ex) => null, test: (ex) => ex is StateError)
     .then((Row row) => toEntity(row, fields, newInstance));
   }
