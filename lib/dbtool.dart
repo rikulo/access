@@ -67,12 +67,15 @@ class IndexInfo {
   final bool unique;
   final String table;
   final List<String> columns;
-  ///Types of index. For example, `gist` and `gin`.
+  ///Types of index. Example, `gist` and `gin`.
   ///If null, default is assumed.
   final String using;
+  ///The operation class. Example: `jsonb_path_ops` and `varchar_pattern_ops`.
+  ///If null, default is assumed.
+  final String ops;
 
   IndexInfo(String this.table, List<String> this.columns,
-    {bool this.unique:false, String this.using});
+    {bool this.unique:false, String this.using, String this.ops});
 
   List toJson() => [table, columns, unique];
 }
@@ -127,6 +130,9 @@ SqlType Bigserial([String constraint=NOT_NULL])
 
 SqlType Json([String constraint=NOT_NULL])
 => new SqlType("json", constraint);
+
+SqlType Jsonb([String constraint=NOT_NULL])
+=> new SqlType("jsonb", constraint);
 
 SqlType Tsvector([String constraint=NOT_NULL])
 => new SqlType("tsvector", constraint);
