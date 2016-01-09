@@ -90,8 +90,8 @@ class RuleInfo {
 }
 
 IndexInfo Index(String table, List<String> columns,
-    {bool unique:false, String using})
-=> new IndexInfo(table, columns, unique: unique, using: using);
+    {bool unique:false, String using, String ops})
+=> new IndexInfo(table, columns, unique: unique, using: using, ops: ops);
 RuleInfo Rule(String table, String rule)
 => new RuleInfo(table, rule);
 
