@@ -139,7 +139,7 @@ class DBAccess extends PostgresqlAccess {
   void after(void task(error)) {
     assert(task != null);
     if (_closed)
-      throw new StateError("closed");
+      throw new StateError("Closed");
 
     if (_tasks == null)
       _tasks = [];
@@ -169,7 +169,7 @@ class DBAccess extends PostgresqlAccess {
   @override
   Future<int> execute(String sql, [values]) {
     if (_closed)
-      throw new StateError(sql);
+      throw new StateError("Closed: ${_getErrorMessage(sql, values)}");
 
     _checkTag(sql, values);
 
