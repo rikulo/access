@@ -282,12 +282,16 @@ class DBAccess extends PostgresqlAccess {
    * * [fromClause] - if null, the entity's table is assumed.
    * Note: it shall not include `from`.
    * Example: `"$OT_TASK" inner join "$OT_ASSIGNEE"`
+   * * [shortcut] - the table shortcut to prefix the column names.
+   * Default: none. Useful if you joined other tables in [fromClause].
+   * Note: [shortcut] is case insensitive.
    * 
    * Note: if [fromClause] is specified, [otype] is ignored.
    */
   Stream<Row> queryWith(Iterable<String> fields, String otype,
-      String whereClause, [Map<String, dynamic> whereValues, String fromClause]) {
-    String sql = 'select ${sqlColumns(fields)} from ';
+      String whereClause, [Map<String, dynamic> whereValues,
+      String fromClause, String shortcut]) {
+    String sql = 'select ${sqlColumns(fields, shortcut)} from ';
     sql += fromClause != null ? fromClause: '"$otype"';
     if (whereClause != null)
       sql += ' where $whereClause';
@@ -303,10 +307,15 @@ class DBAccess extends PostgresqlAccess {
    * * [fromClause] - if null, the entity's table is assumed.
    * Note: it shall not include `from`.
    * Example: `"$OT_TASK" inner join "$OT_ASSIGNEE"`
+   * * [shortcut] - the table shortcut to prefix the column names.
+   * Default: none. Useful if you joined other tables in [fromClause].
+   * Note: [shortcut] is case insensitive.
    */
   Future<Row> queryAnyWith(Iterable<String> fields, String otype,
-      String whereClause, [Map<String, dynamic> whereValues, String fromClause])
-  => queryWith(fields, otype, whereClause, whereValues, fromClause).first
+      String whereClause, [Map<String, dynamic> whereValues,
+      String fromClause, String shortcut])
+  => queryWith(fields, otype, whereClause, whereValues, fromClause, shortcut)
+    .first
     .catchError((ex) => null, test: (ex) => ex is StateError);
 
   ///Loads the entity by the given [oid], or null if not found.
@@ -324,10 +333,14 @@ class DBAccess extends PostgresqlAccess {
    * * [fromClause] - if null, the entity's table is assumed.
    * Note: it shall not include `from`.
    * Example: `"$OT_TASK" inner join "$OT_ASSIGNEE"`
+   * * [shortcut] - the table shortcut to prefix the column names.
+   * Default: none. Useful if you joined other tables in [fromClause].
+   * Note: [shortcut] is case insensitive.
    */
   Future<List<Entity>> loadAllWith(
       Iterable<String> fields, Entity newInstance(String oid),
-      String whereClause, [Map<String, dynamic> whereValues, String fromClause]) {
+      String whereClause, [Map<String, dynamic> whereValues,
+      String fromClause, String shortcut]) {
     Set<String> fds;
     if (fields != null) {
       fds = new HashSet();
@@ -335,7 +348,7 @@ class DBAccess extends PostgresqlAccess {
     }
 
     return queryWith(fds, fromClause != null ? null: newInstance('*').otype,
-        whereClause, whereValues, fromClause).toList()
+        whereClause, whereValues, fromClause, shortcut).toList()
     .then((List<Row> rows) {
       final List<Entity> entities = [];
       return Future.forEach(rows,
@@ -385,18 +398,22 @@ class DBAccess extends PostgresqlAccess {
    * * [fromClause] - if null, the entity's table is assumed.
    * Note: it shall not include `from`.
    * Example: `"$OT_TASK" inner join "$OT_ASSIGNEE"`
+   * * [shortcut] - the table shortcut to prefix the column names.
+   * Default: none. Useful if you joined other tables in [fromClause].
+   * Note: [shortcut] is case insensitive.
    */
   Future<List<Entity>> loadWhile(
       Iterable<String> fields, Entity newInstance(String oid),
       bool test(Entity lastLoaded, List<Entity> loaded),
-      String whereClause, [Map<String, dynamic> whereValues, String fromClause]) {
+      String whereClause, [Map<String, dynamic> whereValues,
+      String fromClause, String shortcut]) {
 
     final Completer<List<Entity>> completer = new Completer();
     final List<Entity> loaded = [];
     final Stream<Row> stream = queryWith(
         fields != null ? (new HashSet.from(fields)..add(F_OID)): null,
         fromClause != null ? null: newInstance('*').otype,
-        whereClause, whereValues, fromClause);
+        whereClause, whereValues, fromClause, shortcut);
 
     StreamSubscription subscr;
     subscr = stream.listen(
@@ -429,10 +446,14 @@ class DBAccess extends PostgresqlAccess {
    * * [fromClause] - if null, the entity's table is assumed.
    * Note: it shall not include `from`.
    * Example: `"$OT_TASK" inner join "$OT_ASSIGNEE"`
+   * * [shortcut] - the table shortcut to prefix the column names.
+   * Default: none. Useful if you joined other tables in [fromClause].
+   * Note: [shortcut] is case insensitive.
    */
   Future<Entity> loadWith(
       Iterable<String> fields, Entity newInstance(String oid),
-      String whereClause, [Map<String, dynamic> whereValues, String fromClause]) {
+      String whereClause, [Map<String, dynamic> whereValues,
+      String fromClause, String shortcut]) {
     Set<String> fds;
     if (fields != null) {
       fds = new HashSet();
@@ -440,7 +461,7 @@ class DBAccess extends PostgresqlAccess {
     }
 
     return queryWith(fds, fromClause != null ? null: newInstance('*').otype,
-        whereClause, whereValues, fromClause).first
+        whereClause, whereValues, fromClause, shortcut).first
     .catchError((ex) => null, test: (ex) => ex is StateError)
     .then((Row row) => toEntity(row, fields, newInstance));
   }
@@ -550,8 +571,12 @@ List firstColumns(Iterable<Row> rows) {
  * Example,
  * 
  *     access.query('select ${sqlColumns(fields)} from "Foo"');
+ * 
+ * * [shortcut] - the table shortcut to prefix the field (column name).
+ * If specified, the result will be `T."field1",T."field2"` if [shortcut] is `T`.
+ * Note: [shortcut] is case insensitive.
  */
-String sqlColumns(Iterable<String> fields) {
+String sqlColumns(Iterable<String> fields, [String shortcut]) {
   if (fields == null)
     return "*";
   if (fields.isEmpty)
@@ -562,6 +587,8 @@ String sqlColumns(Iterable<String> fields) {
   for (final String field in fields) {
     if (first) first = false;
     else sql.write(',');
+    if (shortcut != null)
+      sql..write(shortcut)..write('.');
     sql..write('"')..write(field)..write('"');
   }
   return sql.toString();
