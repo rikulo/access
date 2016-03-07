@@ -292,7 +292,8 @@ class DBAccess extends PostgresqlAccess {
       String whereClause, [Map<String, dynamic> whereValues,
       String fromClause, String shortcut]) {
     String sql = 'select ${sqlColumns(fields, shortcut)} from ';
-    sql += fromClause != null ? fromClause: '"$otype"';
+    sql += fromClause != null ? fromClause:
+        shortcut != null ? '"$otype" $shortcut': '"$otype"';
     if (whereClause != null)
       sql += ' where $whereClause';
     return query(sql, whereValues);
