@@ -91,7 +91,7 @@ Future access(command(DBAccess access)) {
   });
 }
 
-typedef void _Task(error);
+typedef _Task(error);
 
 /** The database access.
  * It is designed to used with [access].
@@ -136,7 +136,7 @@ class DBAccess extends PostgresqlAccess {
    * The [error] argument will be the exception being caught if there is
    * one. It is null if success.
    */
-  void after(void task(error)) {
+  void after(task(error)) {
     assert(task != null);
     if (_closed)
       throw new StateError("Closed");
@@ -157,7 +157,10 @@ class DBAccess extends PostgresqlAccess {
     if (_tasks != null)
       for (final _Task task in _tasks) {
         try {
-          task(error);
+          final f = task(error);
+          if (f is Future)
+            f.catchError((ex, st)
+              => _logger.warning("Failed to invoke $task", ex, st));
         } catch (ex, st) {
           _logger.warning("Failed to invoke $task", ex, st);
         }
