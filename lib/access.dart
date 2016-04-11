@@ -98,7 +98,6 @@ typedef _Task(error);
  */
 class DBAccess extends PostgresqlAccess {
   Map<String, dynamic> _dataset;
-  var _tag;
   List<_Task> _tasks;
   bool _closed = false;
 
@@ -127,9 +126,7 @@ class DBAccess extends PostgresqlAccess {
   ///Once tagged, [onTag] will be called in the next invocation
   ///of [query] or [execute]. If [onTag] is not specified, the SQL statement
   ///is simply logged.
-  void tag(cause) {
-    _tag = cause;
-  }
+  var tag;
 
   /** Adds a task that will be executed after the end of the transaction.
    * 
@@ -223,13 +220,15 @@ class DBAccess extends PostgresqlAccess {
 
   ///Check if it is tagged.
   void _checkTag(String sql, [values]) {
-    if (_tag != null) {
-      final tag = _tag;
-      _tag = null; //do it only once
-      if (_onTag != null)
-        _onTag(tag, sql, values);
-      else
-        _logger.warning('[$tag] SQL: ${_defaultErrorMessage(sql, values)}');
+    if (tag != null) {
+      try {
+        if (_onTag != null)
+          _onTag(this, tag, sql, values);
+        else
+          _logger.warning('[$tag] SQL: ${_defaultErrorMessage(sql, values)}');
+      } finally {
+        tag = null; //do it only once
+      }
     }
   }
   ///Checks if it is slow. If so, logs it.
@@ -237,11 +236,12 @@ class DBAccess extends PostgresqlAccess {
     final Duration spent = new DateTime.now().difference(started);
     final Duration threshold = _realSlowSql;
     if (threshold != null && spent > threshold) {
-      tag("after slow");
-      if (_onSlowSql != null)
-        _onSlowSql(spent, sql, values);
-      else
+      if (_onSlowSql != null) {
+        _onSlowSql(this, spent, sql, values);
+      } else {
+        tag = "after slow";
         _logger.warning('Slow SQL ($spent): ${_getErrorMessage(sql, values)}');
+      }
     }
   }
 
@@ -650,14 +650,16 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [int option, String append])
  * * It returns the previous pool, if any.
  */
 Pool configure(Pool pool, {Duration slowSql,
-    void onSlowSql(Duration timeSpent, String sql, Map<String, dynamic> values),
+    void onSlowSql(DBAccess access, Duration timeSpent,
+          String sql, Map<String, dynamic> values),
     String getErrorMessage(String sql, values),
-    void onTag(cause, String sql, Map<String, dynamic> values),
+    void onTag(DBAccess access, cause, String sql, Map<String, dynamic> values),
     bool shallLogError(ex)}) {
   final p = _pool;
   _pool = pool;
   _slowSql = slowSql;
   _onSlowSql = onSlowSql;
+  _onTag = onTag;
   _getErrorMessage = getErrorMessage ?? _defaultErrorMessage;
   _shallLogError = shallLogError ?? _defaultShallLog;
   return p;
@@ -665,10 +667,10 @@ Pool configure(Pool pool, {Duration slowSql,
 Pool _pool;
 Duration _slowSql;
 
-typedef void _OnSlowSql(Duration timeSpent, String sql, Map<String, dynamic> values);
+typedef void _OnSlowSql(DBAccess access, Duration timeSpent, String sql, Map<String, dynamic> values);
 _OnSlowSql _onSlowSql;
 
-typedef void _OnTag(cause, String sql, Map<String, dynamic> values);
+typedef void _OnTag(DBAccess access, cause, String sql, Map<String, dynamic> values);
 _OnTag _onTag;
 
 typedef String _GetErrorMessage(String sql, values);
