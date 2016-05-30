@@ -54,7 +54,7 @@ bool isNotNullViolation(ex) => isViolation(ex, PG_NOT_NULL_VIOLATION);
  *    })
  *    //The transaction ends here. It commits if success,
  *    //Or, rolls back if an exception is thrown or [DBAccess.rollingback]
- *    //is set to true.
+ *    //is set to a value other than false and null.
  *    .catchError((ex, st) {
  *      ...
  *    });
@@ -74,7 +74,12 @@ Future access(command(DBAccess access)) {
   .then((_) => result = command(access))
   .then((_) {
     closing = true;
-    return access.rollingback ? access._rollback(): access._commit();
+    if (access.rollingback != false && access.rollingback != null) {
+      error = access.rollingback; //yes, use it as an error
+      access._rollback();
+    } else {
+      access._commit();
+    }
   })
   .then((_) => result)
   .catchError((ex, st) {
@@ -91,23 +96,25 @@ Future access(command(DBAccess access)) {
   });
 }
 
-typedef _Task(error);
+typedef void _ErrorTask(error);
+typedef void _Task();
 
 /** The database access.
  * It is designed to used with [access].
  */
 class DBAccess extends PostgresqlAccess {
   Map<String, dynamic> _dataset;
-  List<_Task> _tasks;
+  List<_Task> _afterCommits;
+  List<_ErrorTask> _afterRollbacks;
   bool _closed = false;
 
   /**
-   * A flag to indicate the access (aka., the transaction) shall
+   * A flag or a cause to indicate the access (aka., the transaction) shall
    * be rolled back at the end. By default, [access] rolls back
    * only if an exception is thrown. To force it roll back, you
-   * can set this flag to true.
+   * can set this flag to true or a value other than false and null.
    */
-  bool rollingback = false;
+  var rollingback = false;
 
   DBAccess._(Connection conn): super(conn, cache: true);
 
@@ -128,19 +135,29 @@ class DBAccess extends PostgresqlAccess {
   ///is simply logged.
   var tag;
 
-  /** Adds a task that will be executed after the end of the transaction.
-   * 
-   * The [error] argument will be the exception being caught if there is
-   * one. It is null if success.
+  /** Adds a task that will be executed after the transaction is committed
+   * successfully
    */
-  void after(task(error)) {
+  void afterCommit(void task()) {
     assert(task != null);
     if (_closed)
       throw new StateError("Closed");
 
-    if (_tasks == null)
-      _tasks = [];
-    _tasks.add(task);
+    if (_afterCommits == null)
+      _afterCommits = [];
+    _afterCommits.add(task);
+  }
+  /** Adds a task that will be executed after the transaction is committed
+   * successfully
+   */
+  void afterRollback(void task(error)) {
+    assert(task != null);
+    if (_closed)
+      throw new StateError("Closed");
+
+    if (_afterRollbacks == null)
+      _afterRollbacks = [];
+    _afterRollbacks.add(task);
   }
 
   void _close(error) {
@@ -151,17 +168,25 @@ class DBAccess extends PostgresqlAccess {
       _logger.warning("Failed to close", ex, st);
     }
 
-    if (_tasks != null)
-      for (final _Task task in _tasks) {
-        try {
-          final f = task(error);
-          if (f is Future)
-            f.catchError((ex, st)
-              => _logger.warning("Failed to invoke $task", ex, st));
-        } catch (ex, st) {
-          _logger.warning("Failed to invoke $task", ex, st);
+    if (error != null) {
+      if (_afterRollbacks != null)
+        for (final _ErrorTask task in _afterRollbacks) {
+          try {
+            task(error);
+          } catch (ex, st) {
+            _logger.warning("Failed to invoke $task with $error", ex, st);
+          }
         }
-      }
+    } else {
+      if (_afterCommits != null)
+        for (final _Task task in _afterCommits) {
+          try {
+            task();
+          } catch (ex, st) {
+            _logger.warning("Failed to invoke $task", ex, st);
+          }
+        }
+    }
   }
 
   /// Queues a command for execution, and when done, returns the number of rows
