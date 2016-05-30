@@ -76,10 +76,10 @@ Future access(command(DBAccess access)) {
     closing = true;
     if (access.rollingback != false && access.rollingback != null) {
       error = access.rollingback; //yes, use it as an error
-      access._rollback();
-    } else {
-      access._commit();
+      return access._rollback();
     }
+
+    return access._commit();
   })
   .then((_) => result)
   .catchError((ex, st) {
@@ -113,6 +113,9 @@ class DBAccess extends PostgresqlAccess {
    * be rolled back at the end. By default, [access] rolls back
    * only if an exception is thrown. To force it roll back, you
    * can set this flag to true or a value other than false and null.
+   * 
+   * Note: if a value other than false and null is set,
+   * the callback passed to [afterRollback] will be called with this value.
    */
   var rollingback = false;
 
