@@ -1,5 +1,9 @@
 # Changes
 
+**0.9.1**
+
+* Support virtual columns
+
 **0.9.0**
 
 * Remove `DBAccess.after()`, and replaced with `DBAccess.afterCommit()` and

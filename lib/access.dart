@@ -598,9 +598,19 @@ List firstColumns(Iterable<Row> rows) {
 /** Converts a list of [fields] to a SQL fragment separated by comma.
  * 
  * Note: if [fields] is null, `"*"` is returned, i.e., all fields are assumed.
- * if [fields] is empty, `1` is returned (so it is easier to construct a SQL statement).
+ * if [fields] is empty, `1` is returned (so it is easier to construct 
+ * a SQL statement).
  * 
- * Example,
+ * Note: if a field starts with '(', or a number, we don't encode it
+ * with a double quotation. It is used to retrieve a constant, an expression,
+ * or anything you prefer not to encode.
+ * 
+ * For example, you can pass a field as
+ * `("assignee" is not null or "due" is null)`.
+ * Furthermore, you can name it (aka., virtual column or calculated column):
+ *  `("assignee" is not null or "due" is null) alive`
+ * 
+ * Here is an example of use:
  * 
  *     access.query('select ${sqlColumns(fields)} from "Foo"');
  * 
@@ -619,9 +629,14 @@ String sqlColumns(Iterable<String> fields, [String shortcut]) {
   for (final String field in fields) {
     if (first) first = false;
     else sql.write(',');
-    if (shortcut != null)
-      sql..write(shortcut)..write('.');
-    sql..write('"')..write(field)..write('"');
+
+    if (StringUtil.isChar(field[0], digit: true, match: "(")) {
+      sql.write(field);
+    } else {
+      if (shortcut != null)
+        sql..write(shortcut)..write('.');
+      sql..write('"')..write(field)..write('"');
+    }
   }
   return sql.toString();
 }
