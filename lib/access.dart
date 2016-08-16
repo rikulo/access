@@ -96,8 +96,11 @@ Future access(command(DBAccess access)) {
     access?._close(error);
   });
 }
+
 void _rollbackError(ex, st)
 => _logger.warning("Failed to rollback", ex, st);
+_asNull(_) => null;
+bool _isStateError(ex) => ex is StateError;
 
 typedef void _ErrorTask(error);
 typedef void _Task();
@@ -279,7 +282,7 @@ class DBAccess extends PostgresqlAccess {
   ///Returns the first result, or null if not found.
   Future<Row> queryAny(String sql, [values])
   => query(sql, values).first
-    .catchError((ex) => null, test: (ex) => ex is StateError);
+    .catchError(_asNull, test: _isStateError);
 
   /** Queries [fields] of [otype] for the criteria specified in
    * [whereValues] (AND-ed together).
@@ -301,7 +304,7 @@ class DBAccess extends PostgresqlAccess {
   Future<Row> queryAnyBy(Iterable<String> fields, String otype,
     Map<String, dynamic> whereValues, [int option])
   => _queryBy(fields, otype, whereValues, option, "limit 1").first
-    .catchError((ex) => null, test: (ex) => ex is StateError);
+    .catchError(_asNull, test: _isStateError);
 
   /** Queries [fields] of [otype] for the criteria specified in
    * [whereClause] and [whereValues].
@@ -351,7 +354,7 @@ class DBAccess extends PostgresqlAccess {
       String fromClause, String shortcut])
   => queryWith(fields, otype, whereClause, whereValues, fromClause, shortcut)
     .first
-    .catchError((ex) => null, test: (ex) => ex is StateError);
+    .catchError(_asNull, test: _isStateError);
 
   ///Loads the entity by the given [oid], or null if not found.
   Future<Entity> load(
@@ -497,7 +500,7 @@ class DBAccess extends PostgresqlAccess {
 
     return queryWith(fds, fromClause != null ? null: newInstance('*').otype,
         whereClause, whereValues, fromClause, shortcut).first
-    .catchError((ex) => null, test: (ex) => ex is StateError)
+    .catchError(_asNull, test: _isStateError)
     .then((Row row) => toEntity(row, fields, newInstance));
   }
 
