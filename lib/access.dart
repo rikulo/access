@@ -76,7 +76,8 @@ Future access(command(DBAccess access)) {
     closing = true;
     if (access.rollingback != false && access.rollingback != null) {
       error = access.rollingback; //yes, use it as an error
-      return access._rollback();
+      return access._rollback()
+      .catchError(_rollbackError);
     }
 
     return access._commit();
@@ -88,13 +89,15 @@ Future access(command(DBAccess access)) {
       return new Future.error(ex, st);
 
     return access._rollback()
-    .catchError((ex2, st2) => _logger.warning("Failed to rollback", ex2, st2))
+    .catchError(_rollbackError)
     .then((_) => new Future.error(ex, st));
   })
   .whenComplete(() {
     access?._close(error);
   });
 }
+void _rollbackError(ex, st)
+=> _logger.warning("Failed to rollback", ex, st);
 
 typedef void _ErrorTask(error);
 typedef void _Task();
@@ -214,7 +217,7 @@ class DBAccess extends PostgresqlAccess {
     }
 
     return op.catchError((ex, st) {
-      _logger.severe("Failed execute: ${_getErrorMessage(sql, values)}", ex, st);
+      _logger.severe("Failed to execute: ${_getErrorMessage(sql, values)}", ex, st);
       return new Future.error(ex, st);
     }, test: _shallLogError);
   }
@@ -233,7 +236,7 @@ class DBAccess extends PostgresqlAccess {
       .listen((Row data) => controller.add(data),
         onError: (ex, st) {
           if (_shallLogError(ex))
-            _logger.severe("Failed query: ${_getErrorMessage(sql, values)}", ex, st);
+            _logger.severe("Failed to query: ${_getErrorMessage(sql, values)}", ex, st);
           controller.addError(ex, st);
         },
         onDone: () {
