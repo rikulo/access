@@ -74,7 +74,7 @@ Future access(command(DBAccess access)) {
   .then((_) => result = command(access))
   .then((_) {
     closing = true;
-    if (access.rollingback != false && access.rollingback != null) {
+    if (access.rollingback != false) {
       error = access.rollingback; //yes, use it as an error
       return access._rollback()
       .catchError(_rollbackError);
@@ -116,14 +116,30 @@ class DBAccess extends PostgresqlAccess {
 
   /**
    * A flag or a cause to indicate the access (aka., the transaction) shall
-   * be rolled back at the end. By default, [access] rolls back
+   * be rolled back at the end. 
+   * 
+   * By default, [access] rolls back
    * only if an exception is thrown. To force it roll back, you
    * can set this flag to true or a value other than false and null.
    * 
    * Note: if a value other than false and null is set,
    * the callback passed to [afterRollback] will be called with this value.
+   * 
+   * Note: if null is assigned, *false* will be stored instead.
+   * In other words, it is never null. You can test if rollingback is set
+   * as follows:
+   * 
+   *     if (access.rollingback != false)...
    */
-  var rollingback = false;
+  get rollingback => _rollingback;
+  /** Sets whether to roll back the access (aka., the transaction).
+   * 
+   * Note: if null is assigned, *false* will be stored instead.
+   */
+  set rollingback(rollingback) {
+    _rollingback = rollingback ?? false;
+  }
+  var _rollingback = false;
 
   DBAccess._(Connection conn): super(conn, cache: true);
 

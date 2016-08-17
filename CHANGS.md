@@ -1,5 +1,9 @@
 # Changes
 
+**0.9.3**
+
+* DBAccess.rollingback is never null. If null is assigned, false will be stored instead.
+
 **0.9.1**
 
 * Support virtual columns
