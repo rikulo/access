@@ -48,7 +48,9 @@ bool isNotNullViolation(ex) => isViolation(ex, PG_NOT_NULL_VIOLATION);
 /** Executes a command within a transaction.
  * 
  *    access((DBAccess access) async {
- *      final rows = await access.query('select ...').toList();
+ *      await for (final Row row in await access.query('select ...')) {
+ *        ...
+ *      }
  *      ...
  *      await access.execute('update...');
  *    })
@@ -61,40 +63,38 @@ bool isNotNullViolation(ex) => isViolation(ex, PG_NOT_NULL_VIOLATION);
  *
  * It returns what was returned by [command].
  */
-Future access(command(DBAccess access)) {
-  var result, error;
+Future access(command(DBAccess access)) async {
+  var error;
   bool closing = false;
   DBAccess access;
 
-  return _pool.connect()
-  .then((Connection conn) {
-    access = new DBAccess._(conn);
-    return access._begin();
-  })
-  .then((_) => result = command(access))
-  .then((_) {
+  try {
+    access = new DBAccess._(await _pool.connect());
+    await access._begin();
+
+    final result = await command(access);
+
     closing = true;
-    if (access.rollingback != false) {
+    if (access.rollingback == false) {
+      await access._commit();
+    } else {
       error = access.rollingback; //yes, use it as an error
-      return access._rollback()
-      .catchError(_rollbackError);
+      await access._rollback();
     }
 
-    return access._commit();
-  })
-  .then((_) => result)
-  .catchError((ex, st) {
-    error = ex;
-    if (access == null || closing)
-      return new Future.error(ex, st);
+    return result;
 
-    return access._rollback()
-    .catchError(_rollbackError)
-    .then((_) => new Future.error(ex, st));
-  })
-  .whenComplete(() {
+  } catch (ex) {
+    error = ex;
+    if (access != null && !closing)
+      await access._rollback()
+      .catchError(_rollbackError);
+
+    rethrow;
+
+  } finally {
     access?._close(error);
-  });
+  }
 }
 
 void _rollbackError(ex, st)
@@ -116,11 +116,14 @@ class DBAccess extends PostgresqlAccess {
 
   /**
    * A flag or a cause to indicate the access (aka., the transaction) shall
-   * be rolled back at the end. 
+   * be rolled back at the end.
    * 
    * By default, [access] rolls back
    * only if an exception is thrown. To force it roll back, you
    * can set this flag to true or a value other than false and null.
+   * 
+   * Note: [access] will still return the return value of the command function
+   * if a flag is set.
    * 
    * Note: if a value other than false and null is set,
    * the callback passed to [afterRollback] will be called with this value.
@@ -217,28 +220,27 @@ class DBAccess extends PostgresqlAccess {
   /// Queues a command for execution, and when done, returns the number of rows
   /// affected by the SQL command.
   @override
-  Future<int> execute(String sql, [values]) {
+  Future<int> execute(String sql, [values]) async {
     if (_closed)
       throw new StateError("Closed: ${_getErrorMessage(sql, values)}");
 
     _checkTag(sql, values);
 
-    Future op;
-    if (_realSlowSql != null) {
-      final DateTime started = new DateTime.now();
-      op = conn.execute(sql, values)
-        .then((result) {
-          _checkSlowSql(started, sql, values);
-          return result;
-        });
-    } else {
-      op = conn.execute(sql, values);
-    }
+    try {
+      if (_realSlowSql != null) {
+        final DateTime started = new DateTime.now();
+        final result = await conn.execute(sql, values);
+        _checkSlowSql(started, sql, values);
+        return result;
+      } else {
+        return conn.execute(sql, values);
+      }
 
-    return op.catchError((ex, st) {
-      _logger.severe("Failed to execute: ${_getErrorMessage(sql, values)}", ex, st);
-      return new Future.error(ex, st);
-    }, test: _shallLogError);
+    } catch (ex, st) {
+      if (_shallLogError(ex))
+        _logger.severe("Failed to execute: ${_getErrorMessage(sql, values)}", ex, st);
+      rethrow;
+    }
   }
 
   /// Queue a SQL query to be run, returning a [Stream] of rows.
@@ -394,26 +396,20 @@ class DBAccess extends PostgresqlAccess {
   Future<List<Entity>> loadAllWith(
       Iterable<String> fields, Entity newInstance(String oid),
       String whereClause, [Map<String, dynamic> whereValues,
-      String fromClause, String shortcut]) {
+      String fromClause, String shortcut]) async {
     Set<String> fds;
     if (fields != null) {
       fds = new HashSet();
       fds..add(F_OID)..addAll(fields);
     }
 
-    return queryWith(fds, fromClause != null ? null: newInstance('*').otype,
-        whereClause, whereValues, fromClause, shortcut).toList()
-    .then((List<Row> rows) {
-      final List<Entity> entities = [];
-      return Future.forEach(rows,
-        (Row row) {
-          return toEntity(row, fields, newInstance)
-          .then((Entity entity) {
-            entities.add(entity);
-          });
-        })
-      .then((_) => entities);
-    });
+    final List<Entity> entities = [];
+    await for (final row in
+        queryWith(fds, fromClause != null ? null: newInstance('*').otype,
+        whereClause, whereValues, fromClause, shortcut)) {
+      entities.add(await toEntity(row, fields, newInstance));
+    }
+    return entities;
   }
 
   /** Instantiates an Entity instance to represent the data in [row].
@@ -471,21 +467,20 @@ class DBAccess extends PostgresqlAccess {
 
     StreamSubscription subscr;
     subscr = stream.listen(
-      (Row row) {
-        return toEntity(row, fields, newInstance)
-        .then((Entity e) {
-          loaded.add(e); //always add and add first
+      (Row row) async {
+        final Entity e = await toEntity(row, fields, newInstance);
+        loaded.add(e); //always add and add first
 
-          if (!test(e, loaded)) {
-            final result = subscr.cancel();
-            if (result is Future)
-              result.whenComplete(() => completer.complete(loaded));
-            else
-              completer.complete(loaded);
+        if (!test(e, loaded)) {
+          try {
+            await subscr.cancel();
+            completer.complete(loaded);
+          } catch (ex, st) {
+            completer.completeError(ex, st);
           }
-        });
+        }
       },
-      onError: (ex, st) => completer.completeError(ex, st),
+      onError: completer.completeError,
       onDone: () => completer.complete(loaded),
       cancelOnError: true);
     return completer.future;
@@ -507,17 +502,23 @@ class DBAccess extends PostgresqlAccess {
   Future<Entity> loadWith(
       Iterable<String> fields, Entity newInstance(String oid),
       String whereClause, [Map<String, dynamic> whereValues,
-      String fromClause, String shortcut]) {
+      String fromClause, String shortcut]) async {
     Set<String> fds;
     if (fields != null) {
       fds = new HashSet();
       fds..add(F_OID)..addAll(fields);
     }
 
-    return queryWith(fds, fromClause != null ? null: newInstance('*').otype,
-        whereClause, whereValues, fromClause, shortcut).first
-    .catchError(_asNull, test: _isStateError)
-    .then((Row row) => toEntity(row, fields, newInstance));
+    Row row;
+    try {
+      row = await queryWith(fds,
+        fromClause != null ? null: newInstance('*').otype,
+        whereClause, whereValues, fromClause, shortcut).first;
+    } on StateError catch (_) {
+      //ignore
+    }
+
+    return toEntity(row, fields, newInstance);
   }
 
   /** Loads all entities of the given AND criteria.
@@ -593,10 +594,11 @@ class DBAccess extends PostgresqlAccess {
     sql.write(param);
     final String stmt = sql.toString();
     if (bReturning)
-      return query(stmt, data).first.then((Row r) => r[0]);
+      return query(stmt, data).first.then(_firstCol);
 
     return execute(stmt, data);
   }
+  static _firstCol(Row row) => row[0];
 
   //Begins a transaction
   Future _begin() => execute('begin');
