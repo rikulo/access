@@ -456,35 +456,22 @@ class DBAccess extends PostgresqlAccess {
       Iterable<String> fields, Entity newInstance(String oid),
       bool test(Entity lastLoaded, List<Entity> loaded),
       String whereClause, [Map<String, dynamic> whereValues,
-      String fromClause, String shortcut]) {
+      String fromClause, String shortcut]) async {
 
-    final Completer<List<Entity>> completer = new Completer();
     final List<Entity> loaded = [];
-    final Stream<Row> stream = queryWith(
+
+    await for (final Row row in queryWith(
         fields != null ? (new HashSet.from(fields)..add(F_OID)): null,
         fromClause != null ? null: newInstance('*').otype,
-        whereClause, whereValues, fromClause, shortcut);
+        whereClause, whereValues, fromClause, shortcut)) {
 
-    StreamSubscription subscr;
-    subscr = stream.listen(
-      (Row row) async {
-        final Entity e = await toEntity(row, fields, newInstance);
-        loaded.add(e); //always add and add first
+      final Entity e = await toEntity(row, fields, newInstance);
+      loaded.add(e); //always add (i.e., add before test)
+      if (!test(e, loaded))
+        break;
+    }
 
-        if (!test(e, loaded)) {
-          try {
-            await subscr.cancel();
-          } catch (ex, st) {
-            _logger.warning("Failed to cancel", ex, st);
-          } finally {
-            completer.complete(loaded);
-          }
-        }
-      },
-      onError: completer.completeError,
-      onDone: () => completer.complete(loaded),
-      cancelOnError: true);
-    return completer.future;
+    return loaded;
   }
 
   /** Loads the first entity of the given criteria, or returns null if none.
