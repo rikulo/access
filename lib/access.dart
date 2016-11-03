@@ -474,9 +474,10 @@ class DBAccess extends PostgresqlAccess {
         if (!test(e, loaded)) {
           try {
             await subscr.cancel();
-            completer.complete(loaded);
           } catch (ex, st) {
-            completer.completeError(ex, st);
+            _logger.warning("Failed to cancel", ex, st);
+          } finally {
+            completer.complete(loaded);
           }
         }
       },
