@@ -114,6 +114,9 @@ class DBAccess extends PostgresqlAccess {
   List<_ErrorTask> _afterRollbacks;
   bool _closed = false;
 
+  /// Whether the connect is closed.
+  bool get closed => _closed;
+
   /**
    * A flag or a cause to indicate the access (aka., the transaction) shall
    * be rolled back at the end.
@@ -546,7 +549,7 @@ class DBAccess extends PostgresqlAccess {
    * * [types] - a map of (field-name, field-type). If specified,
    * the type of the field will be retrieved from [types], if any.
    * * [append] - the extra clause to append to the insert statement.
-   * Example, `insert(..., append: returning "$F_OID").then((oid) => ...)`
+   * Example, `final oid = await insert(..., append: returning "$F_OID");`
    */
   Future<dynamic> insert(String otype, Map<String, dynamic> data,
       {Map<String, String> types, String append}) {
