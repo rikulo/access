@@ -63,7 +63,7 @@ bool isNotNullViolation(ex) => isViolation(ex, PG_NOT_NULL_VIOLATION);
  *
  * It returns what was returned by [command].
  */
-Future access(command(DBAccess access)) async {
+Future<T> access<T>(Future<T> command(DBAccess access)) async {
   var error;
   bool closing = false;
   DBAccess access;
