@@ -1,5 +1,9 @@
 # Changes
 
+**0.9.8**
+
+* The signature of the shallLogError argument has been changed.
+
 **0.9.7**
 
 * Apply the generic method syntax (so it requires Dart 1.21 or later)

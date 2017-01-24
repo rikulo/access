@@ -240,7 +240,7 @@ class DBAccess extends PostgresqlAccess {
       }
 
     } catch (ex, st) {
-      if (_shallLogError(ex))
+      if (_shallLogError(this, ex))
         _logger.severe("Failed to execute: ${_getErrorMessage(sql, values)}", ex, st);
       rethrow;
     }
@@ -259,7 +259,7 @@ class DBAccess extends PostgresqlAccess {
     conn.query(sql, values)
       .listen((Row data) => controller.add(data),
         onError: (ex, st) {
-          if (_shallLogError(ex))
+          if (_shallLogError(this, ex))
             _logger.severe("Failed to query: ${_getErrorMessage(sql, values)}", ex, st);
           controller.addError(ex, st);
         },
@@ -712,7 +712,7 @@ Pool configure(Pool pool, {Duration slowSql,
           String sql, Map<String, dynamic> values),
     String getErrorMessage(String sql, values),
     void onTag(DBAccess access, cause, String sql, Map<String, dynamic> values),
-    bool shallLogError(ex)}) {
+    bool shallLogError(DBAccess access, ex)}) {
   final p = _pool;
   _pool = pool;
   _slowSql = slowSql;
@@ -735,6 +735,6 @@ typedef String _GetErrorMessage(String sql, values);
 _GetErrorMessage _getErrorMessage;
 String _defaultErrorMessage(String sql, values) => "$sql, $values";
 
-typedef bool _ShallLog(ex);
+typedef bool _ShallLog(DBAccess access, ex);
 _ShallLog _shallLogError;
-bool _defaultShallLog(ex) => true;
+bool _defaultShallLog(DBAccess access, ex) => true;
