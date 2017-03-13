@@ -254,7 +254,7 @@ class DBAccess extends PostgresqlAccess {
 
     _checkTag(sql, values);
 
-    final StreamController controller = new StreamController();
+    final StreamController<Row> controller = new StreamController<Row>();
     final DateTime started = _realSlowSql != null ? new DateTime.now(): null;
     conn.query(sql, values)
       .listen((Row data) => controller.add(data),
@@ -378,8 +378,8 @@ class DBAccess extends PostgresqlAccess {
     .catchError(_asNull, test: _isStateError);
 
   ///Loads the entity by the given [oid], or null if not found.
-  Future<Entity> load(
-      Iterable<String> fields, Entity newInstance(String oid), String oid,
+  Future<T> load<T extends Entity>(
+      Iterable<String> fields, T newInstance(String oid), String oid,
       [int option])
   => loadIfAny(this, oid, newInstance, fields, option);
 
@@ -396,8 +396,8 @@ class DBAccess extends PostgresqlAccess {
    * Default: none. Useful if you joined other tables in [fromClause].
    * Note: [shortcut] is case insensitive.
    */
-  Future<List<Entity>> loadAllWith(
-      Iterable<String> fields, Entity newInstance(String oid),
+  Future<List<T>> loadAllWith<T extends Entity>(
+      Iterable<String> fields, T newInstance(String oid),
       String whereClause, [Map<String, dynamic> whereValues,
       String fromClause, String shortcut]) async {
     Set<String> fds;
@@ -406,7 +406,7 @@ class DBAccess extends PostgresqlAccess {
       fds..add(F_OID)..addAll(fields);
     }
 
-    final List<Entity> entities = [];
+    final List<T> entities = [];
     await for (final row in
         queryWith(fds, fromClause != null ? null: newInstance('*').otype,
         whereClause, whereValues, fromClause, shortcut)) {
@@ -418,8 +418,8 @@ class DBAccess extends PostgresqlAccess {
   /** Instantiates an Entity instance to represent the data in [row].
    * If [row] is, this method will return `new Future.value(null)`.
    */
-  Future<Entity> toEntity(Row row, Iterable<String> fields,
-      Entity newInstance(String oid)) {
+  Future<T> toEntity<T extends Entity>(Row row, Iterable<String> fields,
+      T newInstance(String oid)) {
     if (row == null)
       return new Future.value();
 
@@ -427,7 +427,7 @@ class DBAccess extends PostgresqlAccess {
     row.forEach((String name, value) => data[name] = value);
     assert(data.containsKey(F_OID)); //F_OID is required.
     return loadIfAny_(this, data.remove(F_OID), newInstance,
-        (Entity e, Set<String> fds, bool fu) => new Future.value(data),
+        (T e, Set<String> fds, bool fu) => new Future.value(data),
         fields);
   }
 
@@ -455,20 +455,20 @@ class DBAccess extends PostgresqlAccess {
    * Default: none. Useful if you joined other tables in [fromClause].
    * Note: [shortcut] is case insensitive.
    */
-  Future<List<Entity>> loadWhile(
-      Iterable<String> fields, Entity newInstance(String oid),
-      bool test(Entity lastLoaded, List<Entity> loaded),
+  Future<List<T>> loadWhile<T extends Entity>(
+      Iterable<String> fields, T newInstance(String oid),
+      bool test(T lastLoaded, List<T> loaded),
       String whereClause, [Map<String, dynamic> whereValues,
       String fromClause, String shortcut]) async {
 
-    final List<Entity> loaded = [];
+    final List<T> loaded = [];
 
     await for (final Row row in queryWith(
         fields != null ? (new HashSet.from(fields)..add(F_OID)): null,
         fromClause != null ? null: newInstance('*').otype,
         whereClause, whereValues, fromClause, shortcut)) {
 
-      final Entity e = await toEntity(row, fields, newInstance);
+      final T e = await toEntity(row, fields, newInstance);
       loaded.add(e); //always add (i.e., add before test)
       if (!test(e, loaded))
         break;
@@ -490,8 +490,8 @@ class DBAccess extends PostgresqlAccess {
    * Default: none. Useful if you joined other tables in [fromClause].
    * Note: [shortcut] is case insensitive.
    */
-  Future<Entity> loadWith(
-      Iterable<String> fields, Entity newInstance(String oid),
+  Future<T> loadWith<T extends Entity>(
+      Iterable<String> fields, T newInstance(String oid),
       String whereClause, [Map<String, dynamic> whereValues,
       String fromClause, String shortcut]) async {
     Set<String> fds;
@@ -518,8 +518,8 @@ class DBAccess extends PostgresqlAccess {
    * * [option] - whether to use [FOR_SHARE], [FOR_UPDATE]
    * or null (default; no lock).
    */
-  Future<List<Entity>> loadAllBy(
-      Iterable<String> fields, Entity newInstance(String oid),
+  Future<List<T>> loadAllBy<T extends Entity>(
+      Iterable<String> fields, T newInstance(String oid),
       Map<String, dynamic> whereValues, [int option])
   => loadAllWith(fields, newInstance,
       sqlWhereBy(whereValues, option), whereValues);
@@ -530,8 +530,8 @@ class DBAccess extends PostgresqlAccess {
    * * [option] - whether to use [FOR_SHARE], [FOR_UPDATE]
    * or null (default; no lock).
    */
-  Future<Entity> loadBy(
-      Iterable<String> fields, Entity newInstance(String oid),
+  Future<T> loadBy<T extends Entity>(
+      Iterable<String> fields, T newInstance(String oid),
       Map<String, dynamic> whereValues, [int option])
   => loadWith(fields, newInstance,
       sqlWhereBy(whereValues, option, "limit 1"), whereValues);
