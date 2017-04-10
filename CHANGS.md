@@ -1,5 +1,9 @@
 # Changes
 
+**0.9.10**
+
+* Slow SQL warning logs the previous SQL statement instead if it is `commit`
+
 **0.9.8**
 
 * The signature of the shallLogError argument has been changed.

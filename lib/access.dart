@@ -165,6 +165,9 @@ class DBAccess extends PostgresqlAccess {
   ///of [query] or [execute]. If [onTag] is not specified, the SQL statement
   ///is simply logged.
   var tag;
+  ///The last executed SQL. It is used for logging the right slow SQL statement.
+  String _lastSql;
+  var _lastValues;
 
   /** Adds a task that will be executed after the transaction is committed
    * successfully
@@ -233,7 +236,13 @@ class DBAccess extends PostgresqlAccess {
       if (_realSlowSql != null) {
         final DateTime started = new DateTime.now();
         final result = await conn.execute(sql, values);
-        _checkSlowSql(started, sql, values);
+
+        if (sql == 'commit' && _lastSql != null)
+          _checkSlowSql(started, _lastSql, _lastValues);
+        else
+          _checkSlowSql(started, sql, values);
+        _lastSql = sql;
+        _lastValues = values;
         return result;
       } else {
         return conn.execute(sql, values);
