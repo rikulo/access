@@ -1,5 +1,10 @@
 # Changes
 
+**0.10.0**
+
+* Citext added
+* The signature of the create method is changed.
+
 **0.9.10**
 
 * Slow SQL warning logs the previous SQL statement instead if it is `commit`

@@ -6,24 +6,19 @@ part of access.dbtool;
 ///Creates the tables specified in version.
 Future create(Connection conn,
     double version, Map<String, Map<String, SqlType>> tables,
-    Map<String, IndexInfo> indexes, Map<String, RuleInfo> rules,
-    String script) {
+    Map<String, IndexInfo> indexes, Map<String, RuleInfo> rules) async {
   final Set<String> tblsGened = new HashSet();
   final List<_DeferredRef> refsDeferred = [];
 
-  return Future.forEach(tables.keys,
-    (String otype) =>
-      _createTable(conn, otype, tables[otype], tblsGened, refsDeferred))
-  .then((_) => Future.forEach(refsDeferred,
-    (_DeferredRef defRef) => defRef.create(conn)))
-  .then((_) => Future.forEach(indexes.keys,
-    (String name) => _createIndex(conn, name, indexes[name])))
-  .then((_) => Future.forEach(rules.keys,
-    (String name) => _createRule(conn, name, rules[name])))
-  .then((_) {
-    if (script != null)
-      return conn.execute(script);
-   });
+  for (final otype in tables.keys)
+    await _createTable(conn, otype, tables[otype], tblsGened, refsDeferred);
+  for (final defRef in refsDeferred)
+    await defRef.create(conn);
+
+  for (final name in indexes.keys)
+    await _createIndex(conn, name, indexes[name]);
+  for (final name in rules.keys)
+    await _createRule(conn, name, rules[name]);
 }
 
 Future _createTable(Connection conn, String otype, Map<String, SqlType> table,

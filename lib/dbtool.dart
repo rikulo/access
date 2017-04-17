@@ -98,6 +98,9 @@ RuleInfo Rule(String table, String rule)
 SqlType Text([String constraint=NOT_NULL])
 => new SqlType("text", constraint);
 
+SqlType Citext([String constraint=NOT_NULL])
+=> new SqlType("citext", constraint);
+
 SqlType Char(int length, [String constraint=NOT_NULL])
 => new SqlType("char($length)", constraint);
 
