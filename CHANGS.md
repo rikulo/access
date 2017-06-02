@@ -1,5 +1,9 @@
 # Changes
 
+**0.10.1**
+
+* afterComment and afterRollback can return a Future instance
+
 **0.10.0**
 
 * Citext added

@@ -102,8 +102,8 @@ void _rollbackError(ex, st)
 _asNull(_) => null;
 bool _isStateError(ex) => ex is StateError;
 
-typedef void _ErrorTask(error);
-typedef void _Task();
+typedef _ErrorTask(error);
+typedef _Task();
 
 /** The database access.
  * It is designed to used with [access].
@@ -206,7 +206,10 @@ class DBAccess extends PostgresqlAccess {
       if (_afterRollbacks != null)
         for (final _ErrorTask task in _afterRollbacks) {
           try {
-            task(error);
+            final f = task(error);
+            if (f is Future)
+              f.catchError((ex, st)
+                => _logger.warning("Failed to invoke $task with $error", ex, st));
           } catch (ex, st) {
             _logger.warning("Failed to invoke $task with $error", ex, st);
           }
@@ -215,7 +218,10 @@ class DBAccess extends PostgresqlAccess {
       if (_afterCommits != null)
         for (final _Task task in _afterCommits) {
           try {
-            task();
+            final f = task();
+            if (f is Future)
+              f.catchError((ex, st)
+                => _logger.warning("Failed to invoke $task", ex, st));
           } catch (ex, st) {
             _logger.warning("Failed to invoke $task", ex, st);
           }
