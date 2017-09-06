@@ -33,19 +33,18 @@ Future _createTable(Connection conn, String otype, Map<String, SqlType> table,
 }
 
 class _DeferredRef {
-  final String otypePrimary;
-  final String otypeForeign;
-  final String columnForeign;
+  final String otypePrimary, columnPrimary;
+  final String otypeForeign, columnForeign;
   final String cascade;
 
-  _DeferredRef(this.otypePrimary, this.otypeForeign, this.columnForeign,
-    this.cascade);
+  _DeferredRef(this.otypePrimary, this.columnPrimary,
+      this.otypeForeign, this.columnForeign, this.cascade);
 
   Future create(Connection conn)
   => conn.execute(['alter table "', otypeForeign,
       '" add constraint "fk_', columnForeign,
       '" foreign key("', columnForeign, '") references "',
-      otypePrimary, '"("', F_OID, '") ', cascade].join(''));
+      otypePrimary, '"("', columnPrimary, '") ', cascade].join(''));
   Future drop(Connection conn)
   => conn.execute(['alter table "', otypeForeign,
       '" drop constraint "fk_', columnForeign, '"'].join(''));
@@ -79,7 +78,8 @@ bool _genCreateColumns(List<String> query, String otype,
 
       if (deferred)
         refsDeferred.add(
-          new _DeferredRef(refType.otype, otype, col, refType.cascade));
+          new _DeferredRef(refType.otype, refType.column,
+              otype, col, refType.cascade));
     } else {
       query.add(sqlType.toSqlString());
     }

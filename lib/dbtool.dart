@@ -27,8 +27,8 @@ const String
 
 ///Represents a SQL type
 abstract class SqlType {
-  factory SqlType(String type, [String constraint=NOT_NULL])
-  => new _SqlType(type, constraint);
+  factory SqlType(String type, {String constraint: NOT_NULL})
+  => new _SqlType(type, constraint: constraint);
 
   ///Returns the string that will be part of SQL statement.
   String toSqlString();
@@ -36,15 +36,16 @@ abstract class SqlType {
 }
 
 abstract class ReferenceType extends SqlType {
-  factory ReferenceType(String otype, [String constraint=NOT_NULL,
-    String cascade=""])
-  => new _RefType(otype, constraint, cascade);
+  factory ReferenceType(String otype, {String constraint: NOT_NULL,
+    String cascade = "", String column: F_OID})
+  => new _RefType(otype, constraint, cascade, column);
 
   ///Returns the SQL statment depending on if the reference is deferred.
   ///By default, we mean the referenced table is not created yet.
   String toSqlStringBy(bool deferred);
 
-  final String cascade;
+  String get cascade;
+  String get column;
 
   ///Returns the name of the table having the primary key.
   String get otype;
@@ -95,62 +96,64 @@ IndexInfo Index(String table, List<String> columns,
 RuleInfo Rule(String table, String rule)
 => new RuleInfo(table, rule);
 
-SqlType Text([String constraint=NOT_NULL])
-=> new SqlType("text", constraint);
+SqlType Text({String constraint: NOT_NULL})
+=> new SqlType("text", constraint: constraint);
 
-SqlType Citext([String constraint=NOT_NULL])
-=> new SqlType("citext", constraint);
+SqlType Citext({String constraint: NOT_NULL})
+=> new SqlType("citext", constraint: constraint);
 
-SqlType Char(int length, [String constraint=NOT_NULL])
-=> new SqlType("char($length)", constraint);
+SqlType Char(int length, {String constraint: NOT_NULL})
+=> new SqlType("char($length)", constraint: constraint);
 
-SqlType Timestamptz([String constraint=NOT_NULL])
-=> new SqlType("timestamptz(3)", constraint);
+SqlType Timestamptz({String constraint: NOT_NULL})
+=> new SqlType("timestamptz(3)", constraint: constraint);
 
-SqlType Integer([String constraint=NOT_NULL])
-=> new SqlType("integer", constraint);
+SqlType Integer({String constraint: NOT_NULL})
+=> new SqlType("integer", constraint: constraint);
 
-SqlType Smallint([String constraint=NOT_NULL])
-=> new SqlType("smallint", constraint);
+SqlType Smallint({String constraint: NOT_NULL})
+=> new SqlType("smallint", constraint: constraint);
 
-SqlType Bigint([String constraint=NOT_NULL])
-=> new SqlType("bigint", constraint);
+SqlType Bigint({String constraint: NOT_NULL})
+=> new SqlType("bigint", constraint: constraint);
 
-SqlType Double([String constraint=NOT_NULL])
-=> new SqlType("double precision", constraint);
+SqlType Double({String constraint: NOT_NULL})
+=> new SqlType("double precision", constraint: constraint);
 
-SqlType Real([String constraint=NOT_NULL])
-=> new SqlType("real", constraint);
+SqlType Real({String constraint: NOT_NULL})
+=> new SqlType("real", constraint: constraint);
 
-SqlType Boolean([String constraint=NOT_NULL])
-=> new SqlType("boolean", constraint);
+SqlType Boolean({String constraint: NOT_NULL})
+=> new SqlType("boolean", constraint: constraint);
 
-SqlType Serial([String constraint=NOT_NULL])
-=> new SqlType("serial", constraint);
+SqlType Serial({String constraint: NOT_NULL})
+=> new SqlType("serial", constraint: constraint);
 
-SqlType Bigserial([String constraint=NOT_NULL])
-=> new SqlType("bigserial", constraint);
+SqlType Bigserial({String constraint: NOT_NULL})
+=> new SqlType("bigserial", constraint: constraint);
 
-SqlType Json([String constraint=NOT_NULL])
-=> new SqlType("json", constraint);
+SqlType Json({String constraint: NOT_NULL})
+=> new SqlType("json", constraint: constraint);
 
-SqlType Jsonb([String constraint=NOT_NULL])
-=> new SqlType("jsonb", constraint);
+SqlType Jsonb({String constraint: NOT_NULL})
+=> new SqlType("jsonb", constraint: constraint);
 
-SqlType Tsvector([String constraint=NOT_NULL])
-=> new SqlType("tsvector", constraint);
+SqlType Tsvector({String constraint: NOT_NULL})
+=> new SqlType("tsvector", constraint: constraint);
 
-SqlType Reference(String otype, [String constraint=NOT_NULL, String cascade=""])
-=> new ReferenceType(otype, constraint, cascade);
+SqlType Reference(String otype, {String constraint: NOT_NULL,
+    String cascade = "", String column: F_OID})
+=> new ReferenceType(otype, constraint: constraint,
+      cascade: cascade, column: column);
 
 ///A reference that refers to a record from two ore more different tables.
-SqlType UnboundReference([String constraint=NOT_NULL])
-=> new SqlType("text", constraint);
+SqlType UnboundReference({String constraint: NOT_NULL})
+=> new SqlType("text", constraint: constraint);
 
 SqlType Oid()
-=> new SqlType("text", 'not null primary key');
+=> new SqlType("text", constraint: 'not null primary key');
 
-SqlType AutoOid() => new SqlType('bigserial', 'not null primary key');
+SqlType AutoOid() => new SqlType('bigserial', constraint: 'not null primary key');
 
 /** Copyies the definition from another [source].
  * For example,
@@ -170,7 +173,7 @@ class _SqlType implements SqlType {
   final String type;
   final String constraint;
 
-  _SqlType(String this.type, String this.constraint);
+  _SqlType(String this.type, {String this.constraint: NOT_NULL});
 
   @override
   String toSqlString() => "$type $constraint";
@@ -192,16 +195,17 @@ class _DefineType implements SqlType {
 class _RefType implements ReferenceType {
   @override
   final String otype;
-  final String constraint;
+  final String constraint, column;
   @override
   final String cascade;
 
-  _RefType(String this.otype, String this.constraint, String this.cascade);
+  _RefType(String this.otype, String this.constraint, String this.cascade,
+      String this.column);
 
   @override
   String toSqlStringBy(bool deferred)
   => deferred ? 'text $constraint':
-    'text $constraint references "$otype"("$F_OID") $cascade';
+    'text $constraint references "$otype"("$column") $cascade';
 
   @override
   String toSqlString() => throw new UnsupportedError(toString());

@@ -1,12 +1,17 @@
 # Changes
 
+**0.11.0**
+
+* Use named paramters instead of positional parameters for declaring types
+* The column that `Reference()` references can be specified.
+
 **0.10.1**
 
-* afterComment and afterRollback can return a Future instance
+* `afterComment()` and `afterRollback()` can return an optional Future instance
 
 **0.10.0**
 
-* Citext added
+* `Citext` added
 * The signature of the create method is changed.
 
 **0.9.10**
