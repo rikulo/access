@@ -154,7 +154,9 @@ SqlType Reference(String otype, {String constraint: NOT_NULL,
 /// developer's job to ensure it.
 /// It is useful if you prefer not to create an index, and can access with
 /// other key(s).
-SqlType UnboundReference(String otype, {String constraint: NOT_NULL})
+/// 
+/// * [otype] - it is useless but for documentation purpose
+SqlType UnboundReference({String otype, String constraint: NOT_NULL})
 => new SqlType("text", constraint: constraint);
 
 SqlType Oid()
