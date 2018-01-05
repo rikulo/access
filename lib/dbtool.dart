@@ -141,13 +141,20 @@ SqlType Jsonb({String constraint: NOT_NULL})
 SqlType Tsvector({String constraint: NOT_NULL})
 => new SqlType("tsvector", constraint: constraint);
 
+/// A reference that refers to a record from another table.
+/// It creates a foreign-key constraint to ensure the relationship.
 SqlType Reference(String otype, {String constraint: NOT_NULL,
     String cascade = "", String column: F_OID})
 => new ReferenceType(otype, constraint: constraint,
       cascade: cascade, column: column);
 
-///A reference that refers to a record from two ore more different tables.
-SqlType UnboundReference({String constraint: NOT_NULL})
+/// A reference that refers to a record from another table.
+///
+/// Unlike [Reference], it doesn't create a constraint. Rather, it is
+/// developer's job to ensure it.
+/// It is useful if you prefer not to create an index, and can access with
+/// other key(s).
+SqlType UnboundReference(String otype, {String constraint: NOT_NULL})
 => new SqlType("text", constraint: constraint);
 
 SqlType Oid()

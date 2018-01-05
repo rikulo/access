@@ -1,5 +1,9 @@
 # Changes
 
+**0.11.1**
+
+* Adds the `otype` argument to `UnboundReference()` for documentation purpose
+
 **0.11.0**
 
 * Use named paramters instead of positional parameters for declaring types
