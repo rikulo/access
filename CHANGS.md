@@ -1,5 +1,9 @@
 # Changes
 
+**0.11.3**
+
+* API of sqlWhereBy is changed -- no option argument
+
 **0.11.1**
 
 * Adds the `otype` argument to `UnboundReference()` for documentation purpose

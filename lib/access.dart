@@ -332,7 +332,7 @@ class DBAccess extends PostgresqlAccess {
   Stream<Row> _queryBy(Iterable<String> fields, String otype,
     Map<String, dynamic> whereValues, int option, String append)
   => queryWith(fields, otype,
-      sqlWhereBy(whereValues, option, append), whereValues);
+      sqlWhereBy(whereValues, append), whereValues, null, null, option);
 
   /** Queries [fields] of [otype] for the criteria specified in
    * [whereValues] (AND-ed together), or null if not found.
@@ -345,8 +345,8 @@ class DBAccess extends PostgresqlAccess {
   /** Queries [fields] of [otype] for the criteria specified in
    * [whereClause] and [whereValues].
    * 
-   * > If you'd like *select-for-update*, you can put `for update`
-   * or `for share` to [whereClause].
+   * > If you'd like *select-for-update*, you can specify [FOR_UPDATE]
+   * or [FOR_SHARE] to [option].
    * 
    * * [whereClause] - if null, no where clause is generated.
    * That is, the whole table will be loaded.
@@ -363,12 +363,16 @@ class DBAccess extends PostgresqlAccess {
    */
   Stream<Row> queryWith(Iterable<String> fields, String otype,
       String whereClause, [Map<String, dynamic> whereValues,
-      String fromClause, String shortcut]) {
+      String fromClause, String shortcut, int option]) {
     String sql = 'select ${sqlColumns(fields, shortcut)} from ';
     sql += fromClause != null ? fromClause:
         shortcut != null ? '"$otype" $shortcut': '"$otype"';
     if (whereClause != null)
       sql += ' where $whereClause';
+    if (option == FOR_UPDATE)
+      sql += ' for update';
+    else if (option == FOR_SHARE)
+      sql += ' for share';
     return query(sql, whereValues);
   }
 
@@ -387,8 +391,8 @@ class DBAccess extends PostgresqlAccess {
    */
   Future<Row> queryAnyWith(Iterable<String> fields, String otype,
       String whereClause, [Map<String, dynamic> whereValues,
-      String fromClause, String shortcut])
-  => queryWith(fields, otype, whereClause, whereValues, fromClause, shortcut)
+      String fromClause, String shortcut, int option])
+  => queryWith(fields, otype, whereClause, whereValues, fromClause, shortcut, option)
     .first
     .catchError(_asNull, test: _isStateError);
 
@@ -414,7 +418,7 @@ class DBAccess extends PostgresqlAccess {
   Future<List<T>> loadAllWith<T extends Entity>(
       Iterable<String> fields, T newInstance(String oid),
       String whereClause, [Map<String, dynamic> whereValues,
-      String fromClause, String shortcut]) async {
+      String fromClause, String shortcut, int option]) async {
     Set<String> fds;
     if (fields != null) {
       fds = new HashSet();
@@ -424,7 +428,7 @@ class DBAccess extends PostgresqlAccess {
     final List<T> entities = [];
     await for (final row in
         queryWith(fds, fromClause != null ? null: newInstance('*').otype,
-        whereClause, whereValues, fromClause, shortcut)) {
+        whereClause, whereValues, fromClause, shortcut, option)) {
       entities.add(await toEntity(row, fields, newInstance));
     }
     return entities;
@@ -474,14 +478,14 @@ class DBAccess extends PostgresqlAccess {
       Iterable<String> fields, T newInstance(String oid),
       bool test(T lastLoaded, List<T> loaded),
       String whereClause, [Map<String, dynamic> whereValues,
-      String fromClause, String shortcut]) async {
+      String fromClause, String shortcut, int option]) async {
 
     final List<T> loaded = [];
 
     await for (final Row row in queryWith(
         fields != null ? (new HashSet.from(fields)..add(F_OID)): null,
         fromClause != null ? null: newInstance('*').otype,
-        whereClause, whereValues, fromClause, shortcut)) {
+        whereClause, whereValues, fromClause, shortcut, option)) {
 
       final T e = await toEntity(row, fields, newInstance);
       loaded.add(e); //always add (i.e., add before test)
@@ -508,7 +512,7 @@ class DBAccess extends PostgresqlAccess {
   Future<T> loadWith<T extends Entity>(
       Iterable<String> fields, T newInstance(String oid),
       String whereClause, [Map<String, dynamic> whereValues,
-      String fromClause, String shortcut]) async {
+      String fromClause, String shortcut, int option]) async {
     Set<String> fds;
     if (fields != null) {
       fds = new HashSet();
@@ -519,7 +523,7 @@ class DBAccess extends PostgresqlAccess {
     try {
       row = await queryWith(fds,
         fromClause != null ? null: newInstance('*').otype,
-        whereClause, whereValues, fromClause, shortcut).first;
+        whereClause, whereValues, fromClause, shortcut, option).first;
     } on StateError catch (_) {
       //ignore
     }
@@ -537,7 +541,7 @@ class DBAccess extends PostgresqlAccess {
       Iterable<String> fields, T newInstance(String oid),
       Map<String, dynamic> whereValues, [int option])
   => loadAllWith(fields, newInstance,
-      sqlWhereBy(whereValues, option), whereValues);
+      sqlWhereBy(whereValues), whereValues, null, null, option);
 
   /** Loads the first entity of the given AND criteria.
    * By AND, we mean it satisfies all values in [whereValues].
@@ -549,7 +553,7 @@ class DBAccess extends PostgresqlAccess {
       Iterable<String> fields, T newInstance(String oid),
       Map<String, dynamic> whereValues, [int option])
   => loadWith(fields, newInstance,
-      sqlWhereBy(whereValues, option, "limit 1"), whereValues);
+      sqlWhereBy(whereValues, "limit 1"), whereValues, null, null, option);
 
   ///Deletes the entity of the given [oid].
   Future<int> delete(String otype, String oid) {
@@ -672,11 +676,8 @@ String sqlColumns(Iterable<String> fields, [String shortcut]) {
 }
 
 /** Returns the where criteria (without where) by anding [whereValues].
- * 
-   * * [option] - whether to use [FOR_SHARE], [FOR_UPDATE]
-   * or null (default; no lock).
  */
-String sqlWhereBy(Map<String, dynamic> whereValues, [int option, String append]) {
+String sqlWhereBy(Map<String, dynamic> whereValues, [String append]) {
   final StringBuffer where = new StringBuffer();
   bool first = true;
   for (final String name in whereValues.keys) {
@@ -693,10 +694,6 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [int option, String append])
 
   if (append != null)
     where..write(' ')..write(append);
-  if (option == FOR_UPDATE)
-    where.write(' for update');
-  else if (option == FOR_SHARE)
-    where.write(' for share');
   return where.toString();
 }
 
