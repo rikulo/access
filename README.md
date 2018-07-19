@@ -23,3 +23,4 @@ A simple database utility for the [entity](https://github.com/rikulo/entity) lib
 ## Who Uses
 
 * [Quire](https://quire.io) - a simple, collaborative, multi-level task management tool.
+* [Keikai](https://keikai.io) - a sophisticated spreadsheet for big data

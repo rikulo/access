@@ -204,28 +204,24 @@ class DBAccess extends PostgresqlAccess {
 
     if (error != null) {
       if (_afterRollbacks != null)
-        for (final _ErrorTask task in _afterRollbacks) {
-          try {
-            final f = task(error);
-            if (f is Future)
-              f.catchError((ex, st)
-                => _logger.warning("Failed to invoke $task with $error", ex, st));
-          } catch (ex, st) {
-            _logger.warning("Failed to invoke $task with $error", ex, st);
-          }
-        }
+        (() async {
+          for (final _ErrorTask task in _afterRollbacks)
+            try {
+              await task(error);
+            } catch (ex, st) {
+              _logger.warning("Failed to invoke $task with $error", ex, st);
+            }
+        });
     } else {
       if (_afterCommits != null)
-        for (final _Task task in _afterCommits) {
-          try {
-            final f = task();
-            if (f is Future)
-              f.catchError((ex, st)
-                => _logger.warning("Failed to invoke $task", ex, st));
-          } catch (ex, st) {
-            _logger.warning("Failed to invoke $task", ex, st);
-          }
-        }
+        (() async {
+          for (final _Task task in _afterCommits)
+            try {
+              await task();
+            } catch (ex, st) {
+              _logger.warning("Failed to invoke $task", ex, st);
+            }
+        })();
     }
   }
 
