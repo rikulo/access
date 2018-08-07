@@ -660,7 +660,7 @@ String sqlColumns(Iterable<String> fields, [String shortcut]) {
     if (first) first = false;
     else sql.write(',');
 
-    if (StringUtil.isChar(field[0], digit: true, match: "(")) {
+    if (_reExpr.hasMatch(field)) {
       sql.write(field);
     } else {
       if (shortcut != null)
@@ -670,6 +670,7 @@ String sqlColumns(Iterable<String> fields, [String shortcut]) {
   }
   return sql.toString();
 }
+final _reExpr = new RegExp(r'(^[0-9]|[("+])');
 
 /** Returns the where criteria (without where) by anding [whereValues].
  */
