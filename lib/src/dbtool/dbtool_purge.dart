@@ -15,7 +15,7 @@ Future purge(Connection conn,
     (String name) => conn.execute('drop index "$name"')
     .catchError((ex) {}, test: _isUndefined)))
   .then((_) {
-    final Set<String> tblsGened = new HashSet();
+    final Set<String> tblsGened = HashSet<String>();
     final List<_DeferredRef> refsDeferred = [];
     for (final String otype in tables.keys)
       _scanDeferredRefs(otype, tables[otype], tblsGened, refsDeferred);
@@ -35,7 +35,7 @@ void _scanDeferredRefs(String otype, Map<String, SqlType> table,
   tblsGened.add(otype);
 
   for (final String col in table.keys) {
-    if (col.startsWith(COPY)) {
+    if (col.startsWith(copy)) {
       _scanDeferredRefs(otype, (table[col] as CopyType).source,
         tblsGened, refsDeferred);
       continue;
@@ -45,11 +45,11 @@ void _scanDeferredRefs(String otype, Map<String, SqlType> table,
       final ReferenceType refType = table[col];
       if (!tblsGened.contains(refType.otype)) //deferred
         refsDeferred.add(
-          new _DeferredRef(refType.otype, refType.column,
+          _DeferredRef(refType.otype, refType.column,
               otype, col, refType.cascade));
     }
   }
 }
 
 bool _isUndefined(ex)
-=> isViolation(ex, PG_UNDEFINED_OBJECT) || isViolation(ex, PG_UNDEFINED_TABLE);
+=> isViolation(ex, pgUndefinedObject) || isViolation(ex, pgUndefinedTable);

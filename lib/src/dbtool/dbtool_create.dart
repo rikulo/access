@@ -7,7 +7,7 @@ part of access.dbtool;
 Future create(Connection conn,
     double version, Map<String, Map<String, SqlType>> tables,
     Map<String, IndexInfo> indexes, Map<String, RuleInfo> rules) async {
-  final Set<String> tblsGened = new HashSet();
+  final Set<String> tblsGened = HashSet<String>();
   final List<_DeferredRef> refsDeferred = [];
 
   for (final otype in tables.keys)
@@ -54,7 +54,7 @@ bool _genCreateColumns(List<String> query, String otype,
       Map<String, SqlType> table, Set<String> tblsGened,
       List<_DeferredRef> refsDeferred, bool first) {
   for (final String col in table.keys) {
-    if (col.startsWith(COPY)) {
+    if (col.startsWith(copy)) {
       first = _genCreateColumns(query, otype,
           (table[col] as CopyType).source, tblsGened, refsDeferred, first);
       continue;
@@ -65,7 +65,7 @@ bool _genCreateColumns(List<String> query, String otype,
 
     final SqlType sqlType = table[col];
 
-    if (col.startsWith(DEFINE)) {
+    if (col.startsWith(define)) {
       query.add(sqlType.toSqlString());
       continue;
     }
@@ -78,7 +78,7 @@ bool _genCreateColumns(List<String> query, String otype,
 
       if (deferred)
         refsDeferred.add(
-          new _DeferredRef(refType.otype, refType.column,
+          _DeferredRef(refType.otype, refType.column,
               otype, col, refType.cascade));
     } else {
       query.add(sqlType.toSqlString());

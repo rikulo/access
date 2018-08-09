@@ -16,21 +16,21 @@ import "package:rikulo_commons/util.dart";
 export "package:postgresql2/postgresql.dart"
   show Connection, PostgresqlException, Row;
 
-final Logger _logger = new Logger("access");
+final Logger _logger = Logger("access");
 
 const String
-  PG_SUCCESSFUL_COMPLETION = "00000",
-  PG_WARNING = "010000",
-  PG_NO_DATA = "020000",
-  PG_DUPLICATE_TABLE = "42P07",
-  PG_FAILED_IN_TRANSACTION = "25P02",
-  PG_UNDEFINED_OBJECT = "42704",
-  PG_UNDEFINED_TABLE = "42P01",
-  PG_INTEGRITY_CONSTRAINT_VIOLATION = "23000",
-  PG_NOT_NULL_VIOLATION =  "23502",
-  PG_FOREIGN_KEY_VIOLATION = "23503",
-  PG_UNIQUE_VIOLATION = "23505",
-  PG_CHECK_VIOLATION = "23514";
+  pgSuccessfulCompletion = "00000",
+  pgWarning = "010000",
+  pgNoData = "020000",
+  pgDuplicateTable = "42P07",
+  pgFailedInTransaction = "25P02",
+  pgUndefinedObject = "42704",
+  pgUndefinedTable = "42P01",
+  pgIntegrityConstraintViolation = "23000",
+  pgNotNullViolation = "23502",
+  pgForeignKeyViolation = "23503",
+  pgUniqueViolation = "23505",
+  pgCheckViolation = "23514";
 
 ///Whether it is [PostgresqlException] about the violation of the given [code].
 bool isViolation(ex, String code)
@@ -39,11 +39,11 @@ bool isViolation(ex, String code)
 
 ///Whether it is [PostgresqlException] about the violation of uniqueness.
 ///It is useful with select-for-update
-bool isUniqueViolation(ex) => isViolation(ex, PG_UNIQUE_VIOLATION);
+bool isUniqueViolation(ex) => isViolation(ex, pgUniqueViolation);
 ///Whether it is [PostgresqlException] about the violation of foreign keys.
-bool isForeignKeyViolation(ex) => isViolation(ex, PG_FOREIGN_KEY_VIOLATION);
+bool isForeignKeyViolation(ex) => isViolation(ex, pgForeignKeyViolation);
 ///Whether it is [PostgresqlException] about the violation of foreign keys.
-bool isNotNullViolation(ex) => isViolation(ex, PG_NOT_NULL_VIOLATION);
+bool isNotNullViolation(ex) => isViolation(ex, pgNotNullViolation);
 
 /** Executes a command within a transaction.
  * 
@@ -69,7 +69,7 @@ Future<T> access<T>(Future<T> command(DBAccess access)) async {
   DBAccess access;
 
   try {
-    access = new DBAccess._(await _pool.connect());
+    access = DBAccess._(await _pool.connect());
     await access._begin();
 
     final result = await command(access);
@@ -158,7 +158,7 @@ class DBAccess extends PostgresqlAccess {
   /** A map of application-specific data.
    */
   Map<String, dynamic> get dataset
-  => _dataset != null ? _dataset: MapUtil.auto(() => _dataset = new HashMap());
+  => _dataset != null ? _dataset: MapUtil.auto(() => _dataset = HashMap<String, dynamic>());
 
   ///Tags the next SQL statement in this access (aka., transaction).
   ///Once tagged, [onTag] will be called in the next invocation
@@ -175,7 +175,7 @@ class DBAccess extends PostgresqlAccess {
   void afterCommit(void task()) {
     assert(task != null);
     if (_closed)
-      throw new StateError("Closed");
+      throw StateError("Closed");
 
     if (_afterCommits == null)
       _afterCommits = [];
@@ -187,7 +187,7 @@ class DBAccess extends PostgresqlAccess {
   void afterRollback(void task(error)) {
     assert(task != null);
     if (_closed)
-      throw new StateError("Closed");
+      throw StateError("Closed");
 
     if (_afterRollbacks == null)
       _afterRollbacks = [];
@@ -230,13 +230,13 @@ class DBAccess extends PostgresqlAccess {
   @override
   Future<int> execute(String sql, [values]) async {
     if (_closed)
-      throw new StateError("Closed: ${_getErrorMessage(sql, values)}");
+      throw StateError("Closed: ${_getErrorMessage(sql, values)}");
 
     _checkTag(sql, values);
 
     try {
       if (_realSlowSql != null) {
-        final DateTime started = new DateTime.now();
+        final DateTime started = DateTime.now();
         final result = await conn.execute(sql, values);
 
         if (sql == 'commit' && _lastSql != null)
@@ -261,12 +261,12 @@ class DBAccess extends PostgresqlAccess {
   @override
   Stream<Row> query(String sql, [values]) {
     if (_closed)
-      throw new StateError("Closed: ${_getErrorMessage(sql, values)}");
+      throw StateError("Closed: ${_getErrorMessage(sql, values)}");
 
     _checkTag(sql, values);
 
-    final StreamController<Row> controller = new StreamController<Row>();
-    final DateTime started = _realSlowSql != null ? new DateTime.now(): null;
+    final StreamController<Row> controller = StreamController<Row>();
+    final DateTime started = _realSlowSql != null ? DateTime.now(): null;
     conn.query(sql, values)
       .listen((Row data) => controller.add(data),
         onError: (ex, st) {
@@ -299,7 +299,7 @@ class DBAccess extends PostgresqlAccess {
   }
   ///Checks if it is slow. If so, logs it.
   void _checkSlowSql(DateTime started, String sql, [values]) {
-    final Duration spent = new DateTime.now().difference(started);
+    final Duration spent = DateTime.now().difference(started);
     final Duration threshold = _realSlowSql;
     if (threshold != null && spent > threshold) {
       if (_onSlowSql != null) {
@@ -417,7 +417,7 @@ class DBAccess extends PostgresqlAccess {
       String fromClause, String shortcut, int option]) async {
     Set<String> fds;
     if (fields != null) {
-      fds = new HashSet();
+      fds = HashSet<String>();
       fds..add(fdOid)..addAll(fields);
     }
 
@@ -431,18 +431,18 @@ class DBAccess extends PostgresqlAccess {
   }
 
   /** Instantiates an Entity instance to represent the data in [row].
-   * If [row] is, this method will return `new Future.value(null)`.
+   * If [row] is, this method will return `Future.value(null)`.
    */
   Future<T> toEntity<T extends Entity>(Row row, Iterable<String> fields,
       T newInstance(String oid)) {
     if (row == null)
-      return new Future.value();
+      return Future.value();
 
-    final Map<String, dynamic> data = new HashMap();
+    final Map<String, dynamic> data = HashMap<String, dynamic>();
     row.forEach((String name, value) => data[name] = value);
     assert(data.containsKey(fdOid)); //fdOid is required.
     return loadIfAny_(this, data.remove(fdOid), newInstance,
-        (T e, Set<String> fds, bool fu) => new Future.value(data),
+        (T e, Set<String> fds, bool fu) => Future.value(data),
         fields);
   }
 
@@ -479,7 +479,7 @@ class DBAccess extends PostgresqlAccess {
     final List<T> loaded = [];
 
     await for (final Row row in queryWith(
-        fields != null ? (new HashSet.from(fields)..add(fdOid)): null,
+        fields != null ? (HashSet.from(fields)..add(fdOid)): null,
         fromClause != null ? null: newInstance('*').otype,
         whereClause, whereValues, fromClause, shortcut, option)) {
 
@@ -511,7 +511,7 @@ class DBAccess extends PostgresqlAccess {
       String fromClause, String shortcut, int option]) async {
     Set<String> fds;
     if (fields != null) {
-      fds = new HashSet();
+      fds = HashSet<String>();
       fds..add(fdOid)..addAll(fields);
     }
 
@@ -568,9 +568,9 @@ class DBAccess extends PostgresqlAccess {
    */
   Future<dynamic> insert(String otype, Map<String, dynamic> data,
       {Map<String, String> types, String append}) {
-    final StringBuffer sql = new  StringBuffer('insert into "')
+    final StringBuffer sql = StringBuffer('insert into "')
       ..write(otype)..write('"(');
-    final StringBuffer param = new StringBuffer(" values(");
+    final StringBuffer param = StringBuffer(" values(");
 
     bool first = true;
     for (final String fd in data.keys) {
@@ -654,7 +654,7 @@ String sqlColumns(Iterable<String> fields, [String shortcut]) {
   if (fields.isEmpty)
     return '1';
 
-  final StringBuffer sql = new StringBuffer();
+  final StringBuffer sql = StringBuffer();
   bool first = true;
   for (final String field in fields) {
     if (first) first = false;
@@ -670,12 +670,12 @@ String sqlColumns(Iterable<String> fields, [String shortcut]) {
   }
   return sql.toString();
 }
-final _reExpr = new RegExp(r'(^[0-9]|[("+])');
+final _reExpr = RegExp(r'(^[0-9]|[("+])');
 
 /** Returns the where criteria (without where) by anding [whereValues].
  */
 String sqlWhereBy(Map<String, dynamic> whereValues, [String append]) {
-  final StringBuffer where = new StringBuffer();
+  final StringBuffer where = StringBuffer();
   bool first = true;
   for (final String name in whereValues.keys) {
     if (first) first = false;
