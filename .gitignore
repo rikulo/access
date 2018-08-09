@@ -3,6 +3,7 @@
 access.iml
 .packages
 .pub
+.dart_tool
 debug
 codegen
 *.local

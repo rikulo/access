@@ -7,7 +7,7 @@ import "dart:async";
 import "dart:collection" show HashSet;
 
 import "package:postgresql2/postgresql.dart";
-import "package:entity/entity.dart" show F_OID;
+import "package:entity/entity.dart" show fdOid;
 
 import "access.dart";
 
@@ -37,7 +37,7 @@ abstract class SqlType {
 
 abstract class ReferenceType extends SqlType {
   factory ReferenceType(String otype, {String constraint: NOT_NULL,
-    String cascade = "", String column: F_OID})
+    String cascade = "", String column: fdOid})
   => new _RefType(otype, constraint, cascade, column);
 
   ///Returns the SQL statment depending on if the reference is deferred.
@@ -144,7 +144,7 @@ SqlType Tsvector({String constraint: NOT_NULL})
 /// A reference that refers to a record from another table.
 /// It creates a foreign-key constraint to ensure the relationship.
 SqlType Reference(String otype, {String constraint: NOT_NULL,
-    String cascade = "", String column: F_OID})
+    String cascade = "", String column: fdOid})
 => new ReferenceType(otype, constraint: constraint,
       cascade: cascade, column: column);
 
@@ -204,7 +204,9 @@ class _DefineType implements SqlType {
 class _RefType implements ReferenceType {
   @override
   final String otype;
-  final String constraint, column;
+  final String constraint;
+  @override
+  final String column;
   @override
   final String cascade;
 

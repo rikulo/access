@@ -319,7 +319,7 @@ class DBAccess extends PostgresqlAccess {
   /** Queries [fields] of [otype] for the criteria specified in
    * [whereValues] (AND-ed together).
    * 
-   * * [option] - whether to use [FOR_UPDATE], [FOR_SHARE] or null.
+   * * [option] - whether to use [forUpdate], [forShare] or null.
    */
   Stream<Row> queryBy(Iterable<String> fields, String otype,
     Map<String, dynamic> whereValues, [int option])
@@ -341,8 +341,8 @@ class DBAccess extends PostgresqlAccess {
   /** Queries [fields] of [otype] for the criteria specified in
    * [whereClause] and [whereValues].
    * 
-   * > If you'd like *select-for-update*, you can specify [FOR_UPDATE]
-   * or [FOR_SHARE] to [option].
+   * > If you'd like *select-for-update*, you can specify [forUpdate]
+   * or [forShare] to [option].
    * 
    * * [whereClause] - if null, no where clause is generated.
    * That is, the whole table will be loaded.
@@ -365,9 +365,9 @@ class DBAccess extends PostgresqlAccess {
         shortcut != null ? '"$otype" $shortcut': '"$otype"';
     if (whereClause != null)
       sql += ' where $whereClause';
-    if (option == FOR_UPDATE)
+    if (option == forUpdate)
       sql += ' for update';
-    else if (option == FOR_SHARE)
+    else if (option == forShare)
       sql += ' for share';
     return query(sql, whereValues);
   }
@@ -418,7 +418,7 @@ class DBAccess extends PostgresqlAccess {
     Set<String> fds;
     if (fields != null) {
       fds = new HashSet();
-      fds..add(F_OID)..addAll(fields);
+      fds..add(fdOid)..addAll(fields);
     }
 
     final List<T> entities = [];
@@ -440,8 +440,8 @@ class DBAccess extends PostgresqlAccess {
 
     final Map<String, dynamic> data = new HashMap();
     row.forEach((String name, value) => data[name] = value);
-    assert(data.containsKey(F_OID)); //F_OID is required.
-    return loadIfAny_(this, data.remove(F_OID), newInstance,
+    assert(data.containsKey(fdOid)); //fdOid is required.
+    return loadIfAny_(this, data.remove(fdOid), newInstance,
         (T e, Set<String> fds, bool fu) => new Future.value(data),
         fields);
   }
@@ -479,7 +479,7 @@ class DBAccess extends PostgresqlAccess {
     final List<T> loaded = [];
 
     await for (final Row row in queryWith(
-        fields != null ? (new HashSet.from(fields)..add(F_OID)): null,
+        fields != null ? (new HashSet.from(fields)..add(fdOid)): null,
         fromClause != null ? null: newInstance('*').otype,
         whereClause, whereValues, fromClause, shortcut, option)) {
 
@@ -512,7 +512,7 @@ class DBAccess extends PostgresqlAccess {
     Set<String> fds;
     if (fields != null) {
       fds = new HashSet();
-      fds..add(F_OID)..addAll(fields);
+      fds..add(fdOid)..addAll(fields);
     }
 
     Row row;
@@ -530,7 +530,7 @@ class DBAccess extends PostgresqlAccess {
   /** Loads all entities of the given AND criteria.
    * By AND, we mean it satisfies all values in [whereValues].
    * 
-   * * [option] - whether to use [FOR_SHARE], [FOR_UPDATE]
+   * * [option] - whether to use [forShare], [forUpdate]
    * or null (default; no lock).
    */
   Future<List<T>> loadAllBy<T extends Entity>(
@@ -542,7 +542,7 @@ class DBAccess extends PostgresqlAccess {
   /** Loads the first entity of the given AND criteria.
    * By AND, we mean it satisfies all values in [whereValues].
    * 
-   * * [option] - whether to use [FOR_SHARE], [FOR_UPDATE]
+   * * [option] - whether to use [forShare], [forUpdate]
    * or null (default; no lock).
    */
   Future<T> loadBy<T extends Entity>(
@@ -554,8 +554,8 @@ class DBAccess extends PostgresqlAccess {
   ///Deletes the entity of the given [oid].
   Future<int> delete(String otype, String oid) {
     uncache(otype, oid);
-    return execute('delete from "$otype" where "$F_OID"=@$F_OID',
-      {F_OID: oid});
+    return execute('delete from "$otype" where "$fdOid"=@$fdOid',
+      {fdOid: oid});
   }
   /** Inserts the entity specified in data.
    * Note: all fields found in [data] are written. You have to
@@ -564,7 +564,7 @@ class DBAccess extends PostgresqlAccess {
    * * [types] - a map of (field-name, field-type). If specified,
    * the type of the field will be retrieved from [types], if any.
    * * [append] - the extra clause to append to the insert statement.
-   * Example, `final oid = await insert(..., append: returning "$F_OID");`
+   * Example, `final oid = await insert(..., append: returning "$fdOid");`
    */
   Future<dynamic> insert(String otype, Map<String, dynamic> data,
       {Map<String, String> types, String append}) {
