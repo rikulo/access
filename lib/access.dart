@@ -158,7 +158,8 @@ class DBAccess extends PostgresqlAccess {
   /** A map of application-specific data.
    */
   Map<String, dynamic> get dataset
-  => _dataset != null ? _dataset: MapUtil.auto(() => _dataset = HashMap<String, dynamic>());
+  => _dataset != null ? _dataset: MapUtil.auto<String, dynamic>(
+          () => _dataset = HashMap<String, dynamic>());
 
   ///Tags the next SQL statement in this access (aka., transaction).
   ///Once tagged, [onTag] will be called in the next invocation
@@ -717,9 +718,9 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [String append]) {
  * * It returns the previous pool, if any.
  */
 Pool configure(Pool pool, {Duration slowSql,
-    void onSlowSql(DBAccess access, Duration timeSpent, String sql, Map values),
+    void onSlowSql(DBAccess access, Duration timeSpent, String sql, values),
     String getErrorMessage(String sql, values),
-    void onTag(DBAccess access, cause, String sql, Map<String, dynamic> values),
+    void onTag(DBAccess access, cause, String sql, values),
     bool shallLogError(DBAccess access, ex)}) {
   final p = _pool;
   _pool = pool;
@@ -733,10 +734,10 @@ Pool configure(Pool pool, {Duration slowSql,
 Pool _pool;
 Duration _slowSql;
 
-typedef void _OnSlowSql(DBAccess access, Duration timeSpent, String sql, Map values);
+typedef void _OnSlowSql(DBAccess access, Duration timeSpent, String sql, values);
 _OnSlowSql _onSlowSql;
 
-typedef void _OnTag(DBAccess access, cause, String sql, Map<String, dynamic> values);
+typedef void _OnTag(DBAccess access, cause, String sql, values);
 _OnTag _onTag;
 
 typedef String _GetErrorMessage(String sql, values);
