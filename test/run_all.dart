@@ -3,8 +3,8 @@
 // Author: tomyeh
 library test_run_all;
 
-//import 'package:test/test.dart';
+import 'sqlColumns_test.dart' as sqlColumns;
 
 main() {
-  //group("foo tests", foo_test.main);
+  sqlColumns.main();
 }
