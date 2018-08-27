@@ -438,7 +438,7 @@ class DBAccess extends PostgresqlAccess {
     if (row == null)
       return Future.value();
 
-    final Map<String, dynamic> data = HashMap<String, dynamic>();
+    final data = HashMap<String, dynamic>();
     row.forEach((String name, value) => data[name] = value);
     assert(data.containsKey(fdOid)); //fdOid is required.
     return loadIfAny_(this, data.remove(fdOid), newInstance,
@@ -717,8 +717,7 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [String append]) {
  * * It returns the previous pool, if any.
  */
 Pool configure(Pool pool, {Duration slowSql,
-    void onSlowSql(DBAccess access, Duration timeSpent,
-          String sql, Map<String, dynamic> values),
+    void onSlowSql(DBAccess access, Duration timeSpent, String sql, Map values),
     String getErrorMessage(String sql, values),
     void onTag(DBAccess access, cause, String sql, Map<String, dynamic> values),
     bool shallLogError(DBAccess access, ex)}) {
@@ -734,7 +733,7 @@ Pool configure(Pool pool, {Duration slowSql,
 Pool _pool;
 Duration _slowSql;
 
-typedef void _OnSlowSql(DBAccess access, Duration timeSpent, String sql, Map<String, dynamic> values);
+typedef void _OnSlowSql(DBAccess access, Duration timeSpent, String sql, Map values);
 _OnSlowSql _onSlowSql;
 
 typedef void _OnTag(DBAccess access, cause, String sql, Map<String, dynamic> values);
