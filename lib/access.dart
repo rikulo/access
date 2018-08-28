@@ -179,7 +179,7 @@ class DBAccess extends PostgresqlAccess {
       throw StateError("Closed");
 
     if (_afterCommits == null)
-      _afterCommits = [];
+      _afterCommits = <_Task>[];
     _afterCommits.add(task);
   }
   /** Adds a task that will be executed after the transaction is committed
@@ -191,7 +191,7 @@ class DBAccess extends PostgresqlAccess {
       throw StateError("Closed");
 
     if (_afterRollbacks == null)
-      _afterRollbacks = [];
+      _afterRollbacks = <_ErrorTask>[];
     _afterRollbacks.add(task);
   }
 
@@ -422,7 +422,7 @@ class DBAccess extends PostgresqlAccess {
       fds..add(fdOid)..addAll(fields);
     }
 
-    final List<T> entities = [];
+    final entities = <T>[];
     await for (final row in
         queryWith(fds, fromClause != null ? null: newInstance('*').otype,
         whereClause, whereValues, fromClause, shortcut, option)) {
@@ -477,7 +477,7 @@ class DBAccess extends PostgresqlAccess {
       String whereClause, [Map<String, dynamic> whereValues,
       String fromClause, String shortcut, int option]) async {
 
-    final List<T> loaded = [];
+    final loaded = <T>[];
 
     await for (final Row row in queryWith(
         fields != null ? (HashSet.from(fields)..add(fdOid)): null,
@@ -620,7 +620,7 @@ class DBAccess extends PostgresqlAccess {
 
 ///Collects the first column of [Row] into a list.
 List firstColumns(Iterable<Row> rows) {
-  final List<String> result = [];
+  final result = <String>[];
   for (final Row row in rows)
     result.add(row[0]);
   return result;
