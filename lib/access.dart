@@ -205,7 +205,7 @@ class DBAccess extends PostgresqlAccess {
 
     if (error != null) {
       if (_afterRollbacks != null)
-        (() async {
+        Timer.run(() async {
           for (final _ErrorTask task in _afterRollbacks)
             try {
               await task(error);
@@ -215,14 +215,14 @@ class DBAccess extends PostgresqlAccess {
         });
     } else {
       if (_afterCommits != null)
-        (() async {
+        Timer.run(() async {
           for (final _Task task in _afterCommits)
             try {
               await task();
             } catch (ex, st) {
               _logger.warning("Failed to invoke $task", ex, st);
             }
-        })();
+        });
     }
   }
 
