@@ -97,7 +97,7 @@ Future<T> access<T>(Future<T> command(DBAccess access)) async {
   }
 }
 
-void _rollbackError(ex, st)
+void _rollbackError(ex, StackTrace st)
 => _logger.warning("Failed to rollback", ex, st);
 _asNull(_) => null;
 bool _isStateError(ex) => ex is StateError;
@@ -145,7 +145,7 @@ class DBAccess extends PostgresqlAccess {
   set rollingback(rollingback) {
     _rollingback = rollingback ?? false;
   }
-  var _rollingback = false;
+  dynamic _rollingback = false;
 
   DBAccess._(Connection conn): super(conn, cache: true);
 
@@ -270,7 +270,7 @@ class DBAccess extends PostgresqlAccess {
     final DateTime started = _realSlowSql != null ? DateTime.now(): null;
     conn.query(sql, values)
       .listen((Row data) => controller.add(data),
-        onError: (ex, st) {
+        onError: (ex, StackTrace st) {
           if (_shallLogError(this, ex))
             _logger.severe("Failed to query: ${_getErrorMessage(sql, values)}", ex, st);
           controller.addError(ex, st);
@@ -442,7 +442,7 @@ class DBAccess extends PostgresqlAccess {
     final data = HashMap<String, dynamic>();
     row.forEach((String name, value) => data[name] = value);
     assert(data.containsKey(fdOid)); //fdOid is required.
-    return loadIfAny_(this, data.remove(fdOid), newInstance,
+    return loadIfAny_(this, data.remove(fdOid) as String, newInstance,
         (T e, Set<String> fds, bool fu) => Future.value(data),
         fields);
   }
@@ -620,7 +620,7 @@ class DBAccess extends PostgresqlAccess {
 
 ///Collects the first column of [Row] into a list.
 List firstColumns(Iterable<Row> rows) {
-  final result = <String>[];
+  final result = [];
   for (final Row row in rows)
     result.add(row[0]);
   return result;

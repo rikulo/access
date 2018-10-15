@@ -15,6 +15,6 @@ void main() {
     ];
 
     for (final c in cases)
-      expect(sqlColumns(c[0]), c[1]);
+      expect(sqlColumns(c[0] as List<String>), c[1]);
   });
 }
