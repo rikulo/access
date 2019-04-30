@@ -111,6 +111,9 @@ Future _createIndex(Connection conn, String name, IndexInfo info) {
     query..add(' ')..add(info.ops);
   query.add(')');
 
+  if (info.where != null)
+    query..add(' where ')..add(info.where);
+
   return conn.execute(query.join(''));
 }
 

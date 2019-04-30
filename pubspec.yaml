@@ -11,6 +11,6 @@ environment:
   sdk: '>=2.0.0-dev <3.0.0'
 dependencies:
   entity: ">=0.7.0"
-  postgresql2: any
-  logging: any
-  rikulo_commons: ">=2.0.0"
+  postgresql2: '>=0.5.0'
+  logging: ">=0.11.0 <2.0.0"
+  rikulo_commons: '>=3.0.0 <4.0.0'

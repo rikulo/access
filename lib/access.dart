@@ -266,8 +266,8 @@ class DBAccess extends PostgresqlAccess {
 
     _checkTag(sql, values);
 
-    final StreamController<Row> controller = StreamController<Row>();
-    final DateTime started = _realSlowSql != null ? DateTime.now(): null;
+    final controller = StreamController<Row>(),
+      started = _realSlowSql != null ? DateTime.now(): null;
     conn.query(sql, values)
       .listen((Row data) => controller.add(data),
         onError: (ex, StackTrace st) {
@@ -569,12 +569,11 @@ class DBAccess extends PostgresqlAccess {
    */
   Future<dynamic> insert(String otype, Map<String, dynamic> data,
       {Map<String, String> types, String append}) {
-    final StringBuffer sql = StringBuffer('insert into "')
-      ..write(otype)..write('"(');
-    final StringBuffer param = StringBuffer(" values(");
+    final sql = StringBuffer('insert into "')..write(otype)..write('"('),
+      param = StringBuffer(" values(");
 
     bool first = true;
-    for (final String fd in data.keys) {
+    for (final fd in data.keys) {
       if (first) first = false;
       else {
         sql.write(',');
@@ -584,7 +583,7 @@ class DBAccess extends PostgresqlAccess {
 
       param..write('@')..write(fd);
       if (types != null) {
-        final String type = types[fd];
+        final type = types[fd];
         if (type != null)
           param..write(':')..write(type);
       }
@@ -599,7 +598,7 @@ class DBAccess extends PostgresqlAccess {
     }
 
     sql.write(param);
-    final String stmt = sql.toString();
+    final stmt = sql.toString();
     if (bReturning)
       return query(stmt, data).first.then(_firstCol);
 
@@ -655,9 +654,9 @@ String sqlColumns(Iterable<String> fields, [String shortcut]) {
   if (fields.isEmpty)
     return '1';
 
-  final StringBuffer sql = StringBuffer();
+  final sql = StringBuffer();
   bool first = true;
-  for (final String field in fields) {
+  for (final field in fields) {
     if (first) first = false;
     else sql.write(',');
 
@@ -676,9 +675,9 @@ final _reExpr = RegExp(r'(^[0-9]|[("+])');
 /** Returns the where criteria (without where) by anding [whereValues].
  */
 String sqlWhereBy(Map<String, dynamic> whereValues, [String append]) {
-  final StringBuffer where = StringBuffer();
+  final where = StringBuffer();
   bool first = true;
-  for (final String name in whereValues.keys) {
+  for (final name in whereValues.keys) {
     if (first) first = false;
     else where.write(' and ');
 

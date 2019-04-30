@@ -1,5 +1,9 @@
 # Changes
 
+**1.0.2**
+
+* `Index()` supports `where` for creating a partial index.
+
 **0.11.3**
 
 * API of sqlWhereBy is changed -- no option argument

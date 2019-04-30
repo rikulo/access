@@ -41,8 +41,8 @@ void _scanDeferredRefs(String otype, Map<String, SqlType> table,
       continue;
     }
 
-    if (table[col] is ReferenceType) {
-      final ReferenceType refType = table[col];
+    final refType = table[col];
+    if (refType is ReferenceType) {
       if (!tblsGened.contains(refType.otype)) //deferred
         refsDeferred.add(
           _DeferredRef(refType.otype, refType.column,

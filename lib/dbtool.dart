@@ -74,11 +74,14 @@ class IndexInfo {
   ///The operation class. Example: `jsonb_path_ops` and `varchar_pattern_ops`.
   ///If null, default is assumed.
   final String ops;
+  ///Conditional index
+  final String where;
 
   IndexInfo(String this.table, List<String> this.columns,
-    {bool this.unique:false, String this.using, String this.ops});
+    {bool this.unique:false, String this.using, String this.ops,
+      String this.where});
 
-  List toJson() => [table, columns, unique];
+  List toJson() => [table, columns, unique, using, ops, where];
 }
 
 ///The rule info
@@ -91,8 +94,9 @@ class RuleInfo {
 }
 
 IndexInfo Index(String table, List<String> columns,
-    {bool unique:false, String using, String ops})
-=> IndexInfo(table, columns, unique: unique, using: using, ops: ops);
+    {bool unique:false, String using, String ops, String where})
+=> IndexInfo(table, columns, unique: unique, using: using, ops: ops,
+    where: where);
 RuleInfo Rule(String table, String rule)
 => RuleInfo(table, rule);
 
