@@ -37,9 +37,10 @@ const String
 /// 
 /// Example,
 /// ```
-///    await access.queryBy(..., {fdRemovedAt: notNull});
+///    await access.queryBy(..., const {fdRemovedAt: notNull});
 /// ```
-final notNull = Object();
+const notNull = _DBValue.notNull;
+enum _DBValue {notNull}
 
 ///Whether it is [PostgresqlException] about the violation of the given [code].
 bool isViolation(ex, String code)
@@ -697,7 +698,7 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [String append]) {
     where..write('"')..write(name);
 
     final value = whereValues[name];
-    if (identical(value, notNull))
+    if (value == notNull)
       where.write('" is not null');
     else if (value != null)
       where..write('"=@')..write(name);
