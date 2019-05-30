@@ -1,5 +1,9 @@
 # Changes
 
+**1.0.3**
+
+* `notNull` introduced to simpify the specifying of a non-null condition in the `whereValues` condition.
+
 **1.0.2**
 
 * `Index()` supports `where` for creating a partial index.

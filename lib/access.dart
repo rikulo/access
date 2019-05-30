@@ -32,6 +32,10 @@ const String
   pgUniqueViolation = "23505",
   pgCheckViolation = "23514";
 
+/// Used in the `whereValues` of [DBAccess.loadBy], [DBAccess.queryBy],
+/// and [sqlWhereBy] to indicate a field shall not be null.
+final notNull = Object();
+
 ///Whether it is [PostgresqlException] about the violation of the given [code].
 bool isViolation(ex, String code)
 => ex is PostgresqlException && ex.serverMessage != null
@@ -348,10 +352,10 @@ class DBAccess extends PostgresqlAccess {
    * * [whereClause] - if null, no where clause is generated.
    * That is, the whole table will be loaded.
    * Note: it shall not include `where`.
-   * Example: `"$F_REMOVED_AT" is not null`
+   * Example: `"$fdType"=23`
    * * [fromClause] - if null, the entity's table is assumed.
    * Note: it shall not include `from`.
-   * Example: `"$OT_TASK" inner join "$OT_ASSIGNEE"`
+   * Example: `"$otTask" inner join "$otGrant"`
    * * [shortcut] - the table shortcut to prefix the column names.
    * Default: none. Useful if you joined other tables in [fromClause].
    * Note: [shortcut] is case insensitive.
@@ -378,10 +382,10 @@ class DBAccess extends PostgresqlAccess {
    * * [whereClause] - if null, no where clause is generated.
    * That is, the whole table will be loaded.
    * Note: it shall not include `where`.
-   * Example: `"$F_REMOVED_AT" is not null`
+   * Example: `"$fdType" = 23`
    * * [fromClause] - if null, the entity's table is assumed.
    * Note: it shall not include `from`.
-   * Example: `"$OT_TASK" inner join "$OT_ASSIGNEE"`
+   * Example: `"$otTask" inner join "$otGrant"`
    * * [shortcut] - the table shortcut to prefix the column names.
    * Default: none. Useful if you joined other tables in [fromClause].
    * Note: [shortcut] is case insensitive.
@@ -404,10 +408,10 @@ class DBAccess extends PostgresqlAccess {
    * * [whereClause] - if null, no where clause is generated.
    * That is, the whole table will be loaded.
    * Note: it shall not include `where`.
-   * Example: `"$F_REMOVED_AT" is not null`
+   * Example: `"$fdType" = 23`
    * * [fromClause] - if null, the entity's table is assumed.
    * Note: it shall not include `from`.
-   * Example: `"$OT_TASK" inner join "$OT_ASSIGNEE"`
+   * Example: `"$otTask" inner join "$otGrant"`
    * * [shortcut] - the table shortcut to prefix the column names.
    * Default: none. Useful if you joined other tables in [fromClause].
    * Note: [shortcut] is case insensitive.
@@ -463,10 +467,10 @@ class DBAccess extends PostgresqlAccess {
    * * [whereClause] - if null, no where clause is generated.
    * That is, the whole table will be loaded.
    * Note: it shall not include `where`.
-   * Example: `"$F_REMOVED_AT" is not null`
+   * Example: `"$fdType" = 23`
    * * [fromClause] - if null, the entity's table is assumed.
    * Note: it shall not include `from`.
-   * Example: `"$OT_TASK" inner join "$OT_ASSIGNEE"`
+   * Example: `"$otTask" inner join "$otGrant"`
    * * [shortcut] - the table shortcut to prefix the column names.
    * Default: none. Useful if you joined other tables in [fromClause].
    * Note: [shortcut] is case insensitive.
@@ -498,10 +502,10 @@ class DBAccess extends PostgresqlAccess {
    * * [whereClause] - if null, no where clause is generated.
    * That is, the whole table will be loaded.
    * Note: it shall not include `where`.
-   * Example: `"$F_REMOVED_AT" is not null`
+   * Example: `"$fdType" = 23`
    * * [fromClause] - if null, the entity's table is assumed.
    * Note: it shall not include `from`.
-   * Example: `"$OT_TASK" inner join "$OT_ASSIGNEE"`
+   * Example: `"$otTask" inner join "$otGrant"`
    * * [shortcut] - the table shortcut to prefix the column names.
    * Default: none. Useful if you joined other tables in [fromClause].
    * Note: [shortcut] is case insensitive.
@@ -560,7 +564,7 @@ class DBAccess extends PostgresqlAccess {
   }
   /** Inserts the entity specified in data.
    * Note: all fields found in [data] are written. You have to
-   * remove unnecessary files by yourself, such as [F_OTYPE].
+   * remove unnecessary files by yourself, such as [fdOtype].
    * 
    * * [types] - a map of (field-name, field-type). If specified,
    * the type of the field will be retrieved from [types], if any.
@@ -673,6 +677,10 @@ String sqlColumns(Iterable<String> fields, [String shortcut]) {
 final _reExpr = RegExp(r'(^[0-9]|[("+])');
 
 /** Returns the where criteria (without where) by anding [whereValues].
+ * 
+ * Note: if a value in [whereValues] is null, it will generate
+ * `foo is null`. If a value is [notNull], it will generate
+ * `foo is not null`.
  */
 String sqlWhereBy(Map<String, dynamic> whereValues, [String append]) {
   final where = StringBuffer();
@@ -683,7 +691,10 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [String append]) {
 
     where..write('"')..write(name);
 
-    if (whereValues[name] != null)
+    final value = whereValues[name];
+    if (identical(value, notNull))
+      where.write('" is not null');
+    else if (value != null)
       where..write('"=@')..write(name);
     else
       where.write('" is null');
