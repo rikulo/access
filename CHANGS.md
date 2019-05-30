@@ -1,8 +1,8 @@
 # Changes
 
-**1.0.3**
+**1.0.4**
 
-* `notNull` introduced to simpify the specifying of a non-null condition in the `whereValues` condition.
+* `not()` introduced to specify a negative condition in the `whereValues` condition.
 
 **1.0.2**
 

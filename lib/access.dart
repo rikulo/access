@@ -16,7 +16,7 @@ import "package:rikulo_commons/util.dart";
 export "package:postgresql2/postgresql.dart"
   show Connection, PostgresqlException, Row;
 
-final Logger _logger = Logger("access");
+final _logger = Logger("access");
 
 const String
   pgSuccessfulCompletion = "00000",
@@ -33,14 +33,33 @@ const String
   pgCheckViolation = "23514";
 
 /// Used in the `whereValues` of [DBAccess.loadBy], [DBAccess.queryBy],
-/// and [sqlWhereBy] to indicate a field shall not be null.
+/// and [sqlWhereBy] to indicate a field shall not be the given value,
+/// so-called negative condition.
 /// 
 /// Example,
 /// ```
-///    await access.queryBy(..., const {fdRemovedAt: notNull});
+///    await access.queryBy(..., {fdRemovedAt: not(null), fdType: not(1)});
 /// ```
-const notNull = _DBValue.notNull;
-enum _DBValue {notNull}
+Not<T> not<T>(T value) => Not<T>(value);
+
+/// Used in the `whereValues` to represent a not-null condition.
+const notNull = const Not(null);
+
+/// Used in the `whereValues` to indicate a negative condition.
+/// 
+/// In most cases, you shall use [not] instead for its simplicity.
+/// 
+/// Use [Not] only for constructing a constant conditions:
+/// ```
+/// const {
+///   "foo": const Not(null),
+///   "key": const Not("abc"),
+/// }
+/// ```
+class Not<T> {
+  final T value;
+  const Not(T this.value);
+}
 
 ///Whether it is [PostgresqlException] about the violation of the given [code].
 bool isViolation(ex, String code)
@@ -685,8 +704,9 @@ final _reExpr = RegExp(r'(^[0-9]|[("+])');
 /** Returns the where criteria (without where) by anding [whereValues].
  * 
  * Note: if a value in [whereValues] is null, it will generate
- * `foo is null`. If a value is [notNull], it will generate
- * `foo is not null`.
+ * `foo is null`. If a value is [not], it will generate `!=`.
+ * Example, `"foo": not(null)` => `foo is not null`.
+ * `"foo": not(123)` => `foo != 123`.
  */
 String sqlWhereBy(Map<String, dynamic> whereValues, [String append]) {
   final where = StringBuffer();
@@ -697,13 +717,19 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [String append]) {
 
     where..write('"')..write(name);
 
-    final value = whereValues[name];
-    if (value == notNull)
-      where.write('" is not null');
-    else if (value != null)
-      where..write('"=@')..write(name);
-    else
-      where.write('" is null');
+    var value = whereValues[name];
+    bool negate;
+    if (negate = value is Not) value = value.value;
+
+    if (value != null) {
+      where.write('"');
+      if (negate) where.write('!');
+      where..write('=@')..write(name);
+    } else {
+      where.write('" is ');
+      if (negate) where.write("not ");
+      where.write('null');
+    }
   }
 
   if (append != null)
