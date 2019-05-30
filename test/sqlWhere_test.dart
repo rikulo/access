@@ -13,7 +13,8 @@ void main() {
       "b": not(null),
       "c": 12,
       "d": not("abc"),
+      "e": notNull,
       }), '"a" is null and "b" is not null and "c"=@c '
-          'and "d"!=@d');
+          'and "d"!=@d and "e" is not null');
   });
 }
