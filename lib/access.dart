@@ -34,6 +34,11 @@ const String
 
 /// Used in the `whereValues` of [DBAccess.loadBy], [DBAccess.queryBy],
 /// and [sqlWhereBy] to indicate a field shall not be null.
+/// 
+/// Example,
+/// ```
+///    await access.queryBy(..., {fdRemovedAt: notNull});
+/// ```
 final notNull = Object();
 
 ///Whether it is [PostgresqlException] about the violation of the given [code].
