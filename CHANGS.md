@@ -1,5 +1,9 @@
 # Changes
 
+**1.0.5**
+
+* `primaryKey` introduced to define a table with multi-column primary key.
+
 **1.0.4**
 
 * `not()` introduced to specify a negative condition in the `whereValues` condition.

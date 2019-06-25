@@ -63,7 +63,19 @@ bool _genCreateColumns(List<String> query, String otype,
     if (first) first = false;
     else query.add(',\n');
 
-    final SqlType sqlType = table[col];
+    final sqlType = table[col];
+
+    if (col == primaryKey) {
+      query..add('constraint "')..add(otype)..add('_pkey" primary key (');
+      bool first = true;
+      for (final col in (sqlType as PrimaryKey).columns) {
+        if (first) first = false;
+        else query.add(',');
+        query..add('"')..add(col)..add('"');
+      }
+      query.add(')');
+      continue;
+    }
 
     if (col.startsWith(define)) {
       query.add(sqlType.toSqlString());

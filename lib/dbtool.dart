@@ -21,6 +21,9 @@ const String notNull = "not null", nullable = "null",
 /** Builtin name for special actions.
  */
 const String
+  /// Defines a primary key
+  primaryKey = ".primary.",
+  /// Copies content from another definition
   copy = ".copy.", copy1 = "$copy.1", copy2 = "$copy.2",
   define = ".define",  define1 = ".define.1",  define2 = ".define.2",
   define3 = ".define.3";
@@ -49,6 +52,19 @@ abstract class ReferenceType extends SqlType {
 
   ///Returns the name of the table having the primary key.
   String get otype;
+}
+
+/// A special type used with [primaryKey] to define a primary key
+/// with multiple columns
+class PrimaryKey implements SqlType {
+  final List<String> columns;
+
+  PrimaryKey(this.columns);
+
+  @override
+  String toSqlString() => throw UnsupportedError(toString());
+  @override
+  List toJson() => throw UnsupportedError(toString());
 }
 
 ///A special type used with [copy] to copy fields from another map
