@@ -1,5 +1,9 @@
 # Changes
 
+**1.0.6**
+
+* `onPreSlowSql` introduced to log the information about locks when detecting a slow SQL statement.
+
 **1.0.5**
 
 * `primaryKey` introduced to define a table with multi-column primary key.
