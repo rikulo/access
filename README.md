@@ -2,7 +2,7 @@
 
 A simple database utility for the [entity](https://github.com/rikulo/entity) library.
 
-* [API Reference](http://www.dartdocs.org/documentation/access/1.0.5)
+* [API Reference](http://www.dartdocs.org/documentation/access/1.0.6)
 
 [![Build Status](https://drone.io/github.com/rikulo/access/status.png)](https://drone.io/github.com/rikulo/access/latest)
 
