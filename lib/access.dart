@@ -179,15 +179,9 @@ class DBAccess extends PostgresqlAccess {
   DBAccess._(Connection conn): super(conn, cache: true);
 
   /** How long to consider the query or execution of a SQL statement is slow.
-   * If omitted, the value specified in [configure] is used.
+   * If not specified (i.e., null), the value specified in [configure] is used.
    */
-  Duration get slowSql => _slowSql;
-  void set slowSql(Duration slowSql) {
-    _preSlowSql = _calcPreSlowSql(_slowSql = slowSql);
-  }
-  Duration _slowSql, _preSlowSql;
-  Duration get _realSlowSql => _slowSql ?? _defaultSlowSql;
-  Duration get _realPreSlowSql => _preSlowSql ?? _defaultPreSlowSql;
+  Duration slowSqlThreshold;
 
   /** A map of application-specific data.
    */
@@ -195,14 +189,8 @@ class DBAccess extends PostgresqlAccess {
   => _dataset != null ? _dataset: MapUtil.auto<String, dynamic>(
           () => _dataset = HashMap<String, dynamic>());
 
-  ///Tags the next SQL statement in this access (aka., transaction).
-  ///Once tagged, [onTag] will be called in the next invocation
-  ///of [query] or [execute]. If [onTag] is not specified, the SQL statement
-  ///is simply logged.
-  var tag;
   ///The last executed SQL. It is used for logging the right slow SQL statement.
   String _lastSql;
-  var _lastValues;
 
   /** Adds a task that will be executed after the transaction is committed
    * successfully
@@ -267,37 +255,21 @@ class DBAccess extends PostgresqlAccess {
     if (_closed)
       throw StateError("Closed: ${_getErrorMessage(sql, values)}");
 
-    _checkTag(sql, values);
-
     try {
-      if (_realSlowSql != null) {
-        final started = DateTime.now(),
+      if (_defaultSlowSqlThreshold != null) {
+        final startAt = DateTime.now(),
           fr = conn.execute(sql, values);
 
-        if (_onPreSlowSql != null) {
-          final tmout = _realPreSlowSql;
-          if (tmout != null)
-            fr.timeout(tmout, onTimeout: _onPreSlowSqlTimeout);
-        }
+        if (_onPreSlowSql != null)
+          fr.timeout(_calcPreSlowSql(slowSqlThreshold) ??
+              _defaultPreSlowSqlThreshold, onTimeout: _onPreSlowSqlTimeout);
 
         final result = await fr;
-
-        if (_waitLockInfo != null) {
-          final lockInfo = _waitLockInfo;
-          _waitLockInfo = null;
-          try {
-            _onPreSlowSql(this, await lockInfo);
-          } catch (ex, st) {
-            _logger.warning("Failed to call onPreSlowSql", ex, st);
-          }
-        }
-
         if (sql == 'commit' && _lastSql != null)
-          _checkSlowSql(started, _lastSql, _lastValues);
+          _checkSlowSql(startAt, "commit: $_lastSql");
         else
-          _checkSlowSql(started, sql, values);
+          _checkSlowSql(startAt, sql);
         _lastSql = sql;
-        _lastValues = values;
         return result;
       } else {
         return conn.execute(sql, values);
@@ -310,26 +282,14 @@ class DBAccess extends PostgresqlAccess {
     }
   }
 
-  int _onPreSlowSqlTimeout() {
-    //Note: we don't wait _waitLockInfo. Rather, wait in execute(), so
-    //access won't be closed too early
-    _waitLockInfo = _getLockInfo(this);
-    return 0;
-  }
-  Future<String> _waitLockInfo;
-
   /// Queue a SQL query to be run, returning a [Stream] of rows.
   @override
   Stream<Row> query(String sql, [values]) {
     if (_closed)
       throw StateError("Closed: ${_getErrorMessage(sql, values)}");
 
-    _checkTag(sql, values);
-    return _query(sql, values, _realSlowSql != null ? DateTime.now(): null);
-  }
-
-  Stream<Row> _query(String sql, values, DateTime startAt) {
-    final controller = StreamController<Row>();
+    final controller = StreamController<Row>(),
+      startAt = _defaultSlowSqlThreshold != null ? DateTime.now(): null;
     conn.query(sql, values)
       .listen((Row data) => controller.add(data),
         onError: (ex, StackTrace st) {
@@ -340,37 +300,22 @@ class DBAccess extends PostgresqlAccess {
         onDone: () {
           controller.close();
 
-          if (startAt != null) _checkSlowSql(startAt, sql, values);
+          if (startAt != null) {
+            _checkSlowSql(startAt, sql);
+            _lastSql = sql;
+          }
         },
         cancelOnError: true);
     return controller.stream;
   }
 
-  ///Check if it is tagged.
-  void _checkTag(String sql, [values]) {
-    if (tag != null) {
-      try {
-        if (_onTag != null)
-          _onTag(this, tag, sql, values);
-        else
-          _logger.warning('[$tag] SQL: ${_getErrorMessage(sql, values)}');
-      } finally {
-        tag = null; //do it only once
-      }
-    }
-  }
   ///Checks if it is slow. If so, logs it.
-  void _checkSlowSql(DateTime started, String sql, [values]) {
-    final spent = DateTime.now().difference(started);
-    final threshold = _realSlowSql;
-    if (threshold != null && spent > threshold) {
-      if (_onSlowSql != null) {
-        _onSlowSql(this, spent, sql, values);
-// Not worth to log "after slow". Use [onSlowSql] if the app cares it.
-//      } else {
-//        tag = "after slow";
-//        _logger.warning('Slow SQL ($spent): ${_getErrorMessage(sql, values)}');
-      }
+  void _checkSlowSql(DateTime startAt, String sql) {
+    final threshold = slowSqlThreshold ?? _defaultSlowSqlThreshold;
+    if (threshold != null) { //just in case
+      final spent = DateTime.now().difference(startAt);
+      if (spent > threshold) _onSlowSql(dataset, spent, sql);
+        //unlike _onPreSlowSql, _onSlowSql never null
     }
   }
 
@@ -779,68 +724,72 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [String append]) {
  * * [slowSql] - how long to consider a query or an execution is slow.
  * It is used to detect if any slow SQL statement. Default: null (no detect).
  * * [onSlowSql] - if specified, it is called when a slow query is detected.
- * If not, the SQL statement will be logged.
+ * The `dataset` argument will be [DBAccess.dataset], so you can use it to
+ * pass information to this callback.
+ * If not specified, the slow SQL statement will be logged directly.
  * * [onPreSlowSql] = if specified, it is called right before [onSlowSql].
- * And, the message will carry the locking information.
- * Note: currently, it supports only [DBAccess.execute],
+ * And, the `message` argument will carry the information about locks.
+ * The implementation can use the `conn` argument to retrieve more from
+ * the database. It is a different transaction than that causes slow SQL.
+ * Note: currently, only [DBAccess.execute] supports it,
+ * If not specified, nothing happens.
  * * [getErrorMessage] - if specified, it is called to retrieve
  * a human readable message of the given [sql] and [values] when an error occurs.
  * Default: it returns a string concatenating [sql] and [values].
- * * [onTag] - once [tag] is called (with a non-null value), [onTag]
- * will be called in the next invocation of [execute] or [query]
- * (i.e., the next SQL statement). If not specified, the SQL statement
- * is simply logged.
  * * [shallLogError] - test if the given exception shall be logged.
  * Default: always true. You can turn the log off by returning false.
  * 
  * * It returns the previous pool, if any.
  */
-Pool configure(Pool pool, {Duration slowSql,
-    void onSlowSql(DBAccess access, Duration timeSpent, String sql, values),
-    void onPreSlowSql(DBAccess access, String message),
+Pool configure(Pool pool, {Duration slowSqlThreshold,
+    void onSlowSql(Map<String, dynamic> dataset, Duration timeSpent, String sql),
+    FutureOr onPreSlowSql(Connection conn, String message),
     String getErrorMessage(String sql, values),
-    void onTag(DBAccess access, cause, String sql, values),
     bool shallLogError(DBAccess access, ex)}) {
   final p = _pool;
   _pool = pool;
-  _defaultPreSlowSql = _calcPreSlowSql(_defaultSlowSql = slowSql);
-  _onSlowSql = onSlowSql;
+  _defaultPreSlowSqlThreshold = _calcPreSlowSql(
+      _defaultSlowSqlThreshold = slowSqlThreshold);
+  _onSlowSql = onSlowSql ?? _defaultOnSlowSql;
   _onPreSlowSql = onPreSlowSql;
-  _onTag = onTag;
   _getErrorMessage = getErrorMessage ?? _defaultErrorMessage;
   _shallLogError = shallLogError ?? _defaultShallLog;
   return p;
 }
 Pool _pool;
 ///How long to consider an execution slow
-Duration _defaultSlowSql,
-///How long to log locking and other info right before [_defaultPreSlowSql]
-  _defaultPreSlowSql;
+Duration _defaultSlowSqlThreshold,
+///How long to log locking and other info (95% of [_defaultSlowSqlThreshold])
+  _defaultPreSlowSqlThreshold;
 
 Duration _calcPreSlowSql(Duration dur)
 => dur == null ? null: Duration(microseconds: (dur.inMicroseconds * 95) ~/ 100);
 
-typedef void _OnSlowSql(DBAccess access, Duration timeSpent, String sql, values);
-typedef void _OnPreSlowSql(DBAccess access, String message);
+typedef void _OnSlowSql(Map<String, dynamic> dataset, Duration timeSpent, String sql);
+typedef FutureOr _OnPreSlowSql(Connection conn, String message);
 _OnSlowSql _onSlowSql;
 _OnPreSlowSql _onPreSlowSql;
-
-typedef void _OnTag(DBAccess access, cause, String sql, values);
-_OnTag _onTag;
 
 typedef String _GetErrorMessage(String sql, values);
 _GetErrorMessage _getErrorMessage;
 String _defaultErrorMessage(String sql, values) => sql;
 
+void _defaultOnSlowSql(Map<String, dynamic> dataset, Duration timeSpent, String sql) {
+  _logger.warning("Slow SQL ($timeSpent): $sql");
+}
 typedef bool _ShallLog(DBAccess access, ex);
 _ShallLog _shallLogError;
 bool _defaultShallLog(DBAccess access, ex) => true;
 
-Future<String> _getLockInfo(DBAccess access) async {
-  //note: use _query() instead query() to avoid trigger onSlowSql() again
-  final r = await access._query("""
-SELECT BdLk.pid, BdAc.query, age(now(), BdAc.query_start),
-BiLk.pid, BiAct.query, age(now(), BiAct.query_start)
+int _onPreSlowSqlTimeout() {
+  Timer.run(() async {
+    Connection conn;
+    try {
+      conn = await _pool.connect(); //use a separated transaction
+
+      final rows = await conn.query("""
+SELECT BdLk.pid, age(now(), BdAc.query_start), BdAc.query,
+BiLk.pid, age(now(), BiAct.query_start), BiAct.query
 FROM pg_catalog.pg_locks BdLk
 JOIN pg_catalog.pg_stat_activity BdAc ON BdAc.pid = BdLk.pid
 JOIN pg_catalog.pg_locks BiLk 
@@ -856,9 +805,34 @@ AND BiLk.objid IS NOT DISTINCT FROM BdLk.objid
 AND BiLk.objsubid IS NOT DISTINCT FROM BdLk.objsubid
 AND BiLk.pid != BdLk.pid
 JOIN pg_catalog.pg_stat_activity BiAct ON BiAct.pid = BiLk.pid
-WHERE NOT BdLk.GRANTED""", null, null).first
-    .catchError(_asNull, test: _isStateError);
-  return r == null ? "No lock found":
-      "Blocked in ${r[0]}: ${r[1]} ${r[2]}\n"
-      "Blocking in ${r[3]}: ${r[4]} ${r[5]}";
+WHERE NOT BdLk.GRANTED""").toList();
+
+      if (_onPreSlowSql == null) return; //just in case
+
+      String msg;
+      if (rows.isEmpty) msg = "No lock found";
+      else {
+        final buf = StringBuffer();
+        int i = 0;
+        for (final r in rows) {
+          if (i++ > 0) buf.write('\n');
+
+          buf..write("Blocked ")
+            ..write(r[0])..write(": ")..write(r[1])..write(' ')..writeln(r[2])
+            ..write("Blocking ")
+            ..write(r[3])..write(": ")..write(r[4])..write(' ')..write(r[5]);
+        }
+        msg = buf.toString();
+      }
+
+      await _onPreSlowSql(conn, msg);
+
+    } catch (ex, st) {
+      _logger.warning("Unable to onPreSlowSql", ex, st);
+    } finally {
+      conn?.close();
+    }
+  });
+
+  return 0;
 }

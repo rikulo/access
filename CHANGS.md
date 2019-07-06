@@ -1,5 +1,11 @@
 # Changes
 
+**1.1.0**
+
+* `DBAccess.tag` and `configure()`'s `onTag` no longer supported.
+* `onSlowSql` and `onPreSlowSql`'s signatures changed.
+* `configure()`'s `slowSql` renamed to `slowSqlThreshold`.
+
 **1.0.6**
 
 * `onPreSlowSql` introduced to log the information about locks when detecting a slow SQL statement.
