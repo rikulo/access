@@ -56,10 +56,10 @@ abstract class ReferenceType extends SqlType {
 
 /// A special type used with [primaryKey] to define a primary key
 /// with multiple columns
-class PrimaryKey implements SqlType {
-  final List<String> columns;
+class PrimaryKeyType implements SqlType {
+  final Iterable<String> columns;
 
-  PrimaryKey(this.columns);
+  PrimaryKeyType(this.columns);
 
   @override
   String toSqlString() => throw UnsupportedError(toString());
@@ -167,6 +167,9 @@ SqlType Reference(String otype, {String constraint: notNull,
     String cascade = "", String column: fdOid})
 => ReferenceType(otype, constraint: constraint,
       cascade: cascade, column: column);
+
+/// A multi-column primary key.
+SqlType PrimaryKey(Iterable<String> columns) => PrimaryKeyType(columns);
 
 /// A reference that refers to a record from another table.
 ///
