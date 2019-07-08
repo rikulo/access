@@ -255,16 +255,18 @@ class DBAccess extends PostgresqlAccess {
     if (_closed)
       throw StateError("Closed: ${_getErrorMessage(sql, values)}");
 
+    Timer tmPreSlow;
     try {
       if (_defaultSlowSqlThreshold != null) {
-        final startAt = DateTime.now(),
-          fr = conn.execute(sql, values);
+        final startAt = DateTime.now();
 
         if (_onPreSlowSql != null)
-          fr.timeout(_calcPreSlowSql(slowSqlThreshold) ??
-              _defaultPreSlowSqlThreshold, onTimeout: _onPreSlowSqlTimeout);
+          tmPreSlow = Timer(_calcPreSlowSql(slowSqlThreshold) ??
+              _defaultPreSlowSqlThreshold, _onPreSlowSqlTimeout);
+            //Don't use execute().timeout() to avoid any error zone issue
 
-        final result = await fr;
+        final result = await conn.execute(sql, values);
+
         if (sql == 'commit' && _lastSql != null)
           _checkSlowSql(startAt, "commit: $_lastSql");
         else
@@ -272,13 +274,16 @@ class DBAccess extends PostgresqlAccess {
         _lastSql = sql;
         return result;
       } else {
-        return conn.execute(sql, values);
+        return await conn.execute(sql, values);
       }
 
     } catch (ex, st) {
       if (_shallLogError(this, ex))
         _logger.severe("Failed to execute: ${_getErrorMessage(sql, values)}", ex, st);
       rethrow;
+
+    } finally {
+      tmPreSlow?.cancel();
     }
   }
 
@@ -781,13 +786,12 @@ typedef bool _ShallLog(DBAccess access, ex);
 _ShallLog _shallLogError;
 bool _defaultShallLog(DBAccess access, ex) => true;
 
-int _onPreSlowSqlTimeout() {
-  Timer.run(() async {
-    Connection conn;
-    try {
-      conn = await _pool.connect(); //use a separated transaction
+_onPreSlowSqlTimeout() async {
+  Connection conn;
+  try {
+    conn = await _pool.connect(); //use a separated transaction
 
-      final rows = await conn.query("""
+    final rows = await conn.query("""
 SELECT BdLk.pid, age(now(), BdAc.query_start), BdAc.query,
 BiLk.pid, age(now(), BiAct.query_start), BiAct.query
 FROM pg_catalog.pg_locks BdLk
@@ -807,32 +811,29 @@ AND BiLk.pid != BdLk.pid
 JOIN pg_catalog.pg_stat_activity BiAct ON BiAct.pid = BiLk.pid
 WHERE NOT BdLk.GRANTED""").toList();
 
-      if (_onPreSlowSql == null) return; //just in case
+    if (_onPreSlowSql == null) return; //just in case
 
-      String msg;
-      if (rows.isEmpty) msg = "No lock found";
-      else {
-        final buf = StringBuffer();
-        int i = 0;
-        for (final r in rows) {
-          if (i++ > 0) buf.write('\n');
+    String msg;
+    if (rows.isEmpty) msg = "No lock found";
+    else {
+      final buf = StringBuffer();
+      int i = 0;
+      for (final r in rows) {
+        if (i++ > 0) buf.write('\n');
 
-          buf..write("Blocked ")
-            ..write(r[0])..write(": ")..write(r[1])..write(' ')..writeln(r[2])
-            ..write("Blocking ")
-            ..write(r[3])..write(": ")..write(r[4])..write(' ')..write(r[5]);
-        }
-        msg = buf.toString();
+        buf..write("Blocked ")
+          ..write(r[0])..write(": ")..write(r[1])..write(' ')..writeln(r[2])
+          ..write("Blocking ")
+          ..write(r[3])..write(": ")..write(r[4])..write(' ')..write(r[5]);
       }
-
-      await _onPreSlowSql(conn, msg);
-
-    } catch (ex, st) {
-      _logger.warning("Unable to onPreSlowSql", ex, st);
-    } finally {
-      conn?.close();
+      msg = buf.toString();
     }
-  });
 
-  return 0;
+    await _onPreSlowSql(conn, msg);
+
+  } catch (ex, st) {
+    _logger.warning("Unable to onPreSlowSql", ex, st);
+  } finally {
+    conn?.close();
+  }
 }
