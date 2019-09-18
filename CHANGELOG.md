@@ -1,5 +1,9 @@
 # Changes
 
+**1.1.1*
+
+* `DBAccess.close()` introduced to allow user to force a transaction to close earlier.
+
 **1.1.0**
 
 * `DBAccess.tag` and `configure()`'s `onTag` no longer supported.

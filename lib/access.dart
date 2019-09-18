@@ -104,25 +104,27 @@ Future<T> access<T>(Future<T> command(DBAccess access)) async {
     final result = await command(access);
 
     closing = true;
-    if (access.rollingback == false) {
-      await access._commit();
-    } else {
-      error = access.rollingback; //yes, use it as an error
-      await access._rollback();
-    }
+    if (!access._closed)
+      if (access.rollingback == false) {
+        await access._commit();
+      } else {
+        error = access.rollingback; //yes, use it as an error
+        await access._rollback();
+      }
 
     return result;
 
   } catch (ex) {
     error = ex;
-    if (access != null && !closing)
+    if (access != null && !access._closed && !closing)
       await access._rollback()
       .catchError(_rollbackError);
 
     rethrow;
 
   } finally {
-    access?._close(error);
+    if (access != null && !access._closed)
+      access._close(error);
   }
 }
 
@@ -134,7 +136,7 @@ bool _isStateError(ex) => ex is StateError;
 typedef _ErrorTask(error);
 typedef _Task();
 
-/** The database access.
+/** The database access transaction.
  * It is designed to used with [access].
  */
 class DBAccess extends PostgresqlAccess {
@@ -143,8 +145,38 @@ class DBAccess extends PostgresqlAccess {
   List<_ErrorTask> _afterRollbacks;
   bool _closed = false;
 
-  /// Whether the connect is closed.
+  /// Whether this transaction is closed.
   bool get closed => _closed;
+
+  /// Forces the transaction to close immediately.
+  /// You rarely need to call this method, since the transaction
+  /// will be closed automatically by [access].
+  /// 
+  /// After calling this method, you cannot access this transaction any more.
+  /// 
+  /// This method will check if [rollingback] is specified with a non-false
+  /// value. If so, it will roll back.
+  Future close() async {
+    if (_closed) throw StateError('closed');
+
+    var error;
+    try { 
+      if (rollingback == false) {
+        await _commit();
+      } else {
+        error = rollingback; //yes, use it as an error
+        await _rollback();
+      }
+    } catch (ex) {
+      error = ex;
+      await _rollback()
+      .catchError(_rollbackError);
+
+      rethrow;
+    } finally {
+      _close(error);
+    }
+  }
 
   /**
    * A flag or a cause to indicate the access (aka., the transaction) shall
@@ -218,6 +250,7 @@ class DBAccess extends PostgresqlAccess {
   }
 
   void _close(error) {
+    assert(!_closed);
     _closed = true;
     try {
       conn.close();
