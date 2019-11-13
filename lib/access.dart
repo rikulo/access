@@ -144,6 +144,7 @@ class DBAccess extends PostgresqlAccess {
   List<_Task> _afterCommits;
   List<_ErrorTask> _afterRollbacks;
   bool _closed = false;
+  var _error; //available only if [closed]
 
   /// Whether this transaction is closed.
   bool get closed => _closed;
@@ -225,24 +226,32 @@ class DBAccess extends PostgresqlAccess {
   String _lastSql;
 
   /** Adds a task that will be executed after the transaction is committed
-   * successfully
+   * successfully.
+   * Note: [task] will be executed directly if the transaction was committed.
    */
-  void afterCommit(void task()) {
+  void afterCommit(FutureOr task()) {
     assert(task != null);
-    if (_closed)
-      throw StateError("Closed");
+    if (_closed) {
+      if (_error == null)
+        Timer.run(() => _invokeSafely(task));
+      return;
+    }
 
     if (_afterCommits == null)
       _afterCommits = <_Task>[];
     _afterCommits.add(task);
   }
-  /** Adds a task that will be executed after the transaction is committed
-   * successfully
+
+  /** Adds a task that will be executed after the transaction is rolled back.
+   * Note: [task] will be executed directly if the transaction was rolled back.
    */
-  void afterRollback(void task(error)) {
+  void afterRollback(FutureOr task(error)) {
     assert(task != null);
-    if (_closed)
-      throw StateError("Closed");
+    if (_closed) {
+      if (_error != null)
+        Timer.run(() => _invokeSafelyWith(task, _error));
+      return;
+    }
 
     if (_afterRollbacks == null)
       _afterRollbacks = <_ErrorTask>[];
@@ -252,6 +261,7 @@ class DBAccess extends PostgresqlAccess {
   void _close(error) {
     assert(!_closed);
     _closed = true;
+    _error = error;
     try {
       conn.close();
     } catch (ex, st) {
@@ -261,23 +271,30 @@ class DBAccess extends PostgresqlAccess {
     if (error != null) {
       if (_afterRollbacks != null)
         Timer.run(() async {
-          for (final _ErrorTask task in _afterRollbacks)
-            try {
-              await task(error);
-            } catch (ex, st) {
-              _logger.warning("Failed to invoke $task with $error", ex, st);
-            }
+          for (final task in _afterRollbacks)
+            await _invokeSafelyWith(task, error);
         });
     } else {
       if (_afterCommits != null)
         Timer.run(() async {
-          for (final _Task task in _afterCommits)
-            try {
-              await task();
-            } catch (ex, st) {
-              _logger.warning("Failed to invoke $task", ex, st);
-            }
+          for (final task in _afterCommits)
+            await _invokeSafely(task);
         });
+    }
+  }
+
+  static Future _invokeSafely(FutureOr task()) async {
+    try {
+      await task();
+    } catch (ex, st) {
+      _logger.warning("Failed to invoke $task", ex, st);
+    }
+  }
+  static Future _invokeSafelyWith(FutureOr task(error), error) async {
+    try {
+      await task(error);
+    } catch (ex, st) {
+      _logger.warning("Failed to invoke $task with $error", ex, st);
     }
   }
 
@@ -540,8 +557,7 @@ class DBAccess extends PostgresqlAccess {
 
   /** Loads the first entity of the given criteria, or returns null if none.
    * 
-   * * [whereClause] - if null, no where clause is generated.
-   * That is, the whole table will be loaded.
+   * * [whereClause] - the where clause.
    * Note: it shall not include `where`.
    * Example: `"$fdType" = 23`
    * * [fromClause] - if null, the entity's table is assumed.

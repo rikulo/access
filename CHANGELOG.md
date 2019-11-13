@@ -1,6 +1,11 @@
 # Changes
 
-**1.1.1*
+**1.2.0**
+
+* `DBAccess.afterCommit()` and `afterRollback()` will execute the given task even if the connection was closed -- depending it was committed or rolled back.
+Also, the task can return a `Future` instance.
+
+**1.1.1**
 
 * `DBAccess.close()` introduced to allow user to force a transaction to close earlier.
 
