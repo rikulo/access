@@ -4,7 +4,7 @@
 library access;
 
 import "dart:async";
-import "dart:collection" show HashSet, HashMap;
+import "dart:collection" show LinkedHashSet, HashMap;
 
 import "package:logging/logging.dart" show Logger;
 import "package:postgresql2/postgresql.dart";
@@ -92,7 +92,7 @@ bool isNotNullViolation(ex) => isViolation(ex, pgNotNullViolation);
  *
  * It returns what was returned by [command].
  */
-Future<T> access<T>(Future<T> command(DBAccess access)) async {
+Future<T> access<T>(FutureOr<T> command(DBAccess access)) async {
   var error;
   bool closing = false;
   DBAccess access;
@@ -480,7 +480,7 @@ class DBAccess extends PostgresqlAccess {
       String fromClause, String shortcut, int option]) async {
     Set<String> fds;
     if (fields != null) {
-      fds = HashSet<String>();
+      fds = LinkedHashSet<String>();
       fds..add(fdOid)..addAll(fields);
     }
 
@@ -542,7 +542,7 @@ class DBAccess extends PostgresqlAccess {
     final loaded = <T>[];
 
     await for (final Row row in queryWith(
-        fields != null ? (HashSet.from(fields)..add(fdOid)): null,
+        fields != null ? (LinkedHashSet.from(fields)..add(fdOid)): null,
         fromClause != null ? null: newInstance('*').otype,
         whereClause, whereValues, fromClause, shortcut, option)) {
 
@@ -573,7 +573,7 @@ class DBAccess extends PostgresqlAccess {
       String fromClause, String shortcut, int option]) async {
     Set<String> fds;
     if (fields != null) {
-      fds = HashSet<String>();
+      fds = LinkedHashSet<String>();
       fds..add(fdOid)..addAll(fields);
     }
 

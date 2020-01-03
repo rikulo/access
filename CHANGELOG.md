@@ -1,5 +1,9 @@
 # Changes
 
+**1.2.1**
+
+* `access()`'s `command` argument can return `FutureOr<T>`
+
 **1.2.0**
 
 * `DBAccess.afterCommit()` and `afterRollback()` will execute the given task even if the connection was closed -- depending it was committed or rolled back.
