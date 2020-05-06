@@ -505,8 +505,7 @@ class DBAccess extends PostgresqlAccess {
     row.forEach((String name, value) => data[name] = value);
     assert(data.containsKey(fdOid)); //fdOid is required.
     return loadIfAny_(this, data.remove(fdOid) as String, newInstance,
-        (T e, Set<String> fds, bool fu) => Future.value(data),
-        fields);
+        (e, fds, option) => data, fields);
   }
 
   /** Loads entities while [test] returns true.
