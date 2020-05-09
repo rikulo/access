@@ -222,9 +222,6 @@ class DBAccess extends PostgresqlAccess {
   => _dataset != null ? _dataset: MapUtil.auto<String, dynamic>(
           () => _dataset = HashMap<String, dynamic>());
 
-  ///The last executed SQL. It is used for logging the right slow SQL statement.
-  String _lastSql;
-
   /** Adds a task that will be executed after the transaction is committed
    * successfully.
    * Note: [task] will be executed directly if the transaction was committed.
@@ -305,27 +302,11 @@ class DBAccess extends PostgresqlAccess {
     if (_closed)
       throw StateError("Closed: ${_getErrorMessage(sql, values)}");
 
-    Timer tmPreSlow;
+    final tmPreSlow = _startSql();
     try {
-      if (_defaultSlowSqlThreshold != null) {
-        final startAt = DateTime.now();
-
-        if (_onPreSlowSql != null)
-          tmPreSlow = Timer(_calcPreSlowSql(slowSqlThreshold) ??
-              _defaultPreSlowSqlThreshold, _onPreSlowSqlTimeout);
-            //Don't use execute().timeout() to avoid any error zone issue
-
-        final result = await conn.execute(sql, values);
-
-        if (sql == 'commit' && _lastSql != null)
-          _checkSlowSql(startAt, "commit: $_lastSql");
-        else
-          _checkSlowSql(startAt, sql);
-        _lastSql = sql;
-        return result;
-      } else {
-        return await conn.execute(sql, values);
-      }
+      final result = await conn.execute(sql, values);
+      _checkSlowSql(sql);
+      return result;
 
     } catch (ex, st) {
       if (_shallLogError(this, ex))
@@ -344,35 +325,54 @@ class DBAccess extends PostgresqlAccess {
       throw StateError("Closed: ${_getErrorMessage(sql, values)}");
 
     final controller = StreamController<Row>(),
-      startAt = _defaultSlowSqlThreshold != null ? DateTime.now(): null;
+      tmPreSlow = _startSql();
     conn.query(sql, values)
-      .listen((Row data) => controller.add(data),
+      .listen((data) => controller.add(data),
         onError: (ex, StackTrace st) {
+          controller.addError(ex, st);
+          tmPreSlow?.cancel();
+
           if (_shallLogError(this, ex))
             _logger.severe("Failed to query: ${_getErrorMessage(sql, values)}", ex, st);
-          controller.addError(ex, st);
         },
         onDone: () {
           controller.close();
 
-          if (startAt != null) {
-            _checkSlowSql(startAt, sql);
-            _lastSql = sql;
-          }
+          _checkSlowSql(sql);
+          tmPreSlow?.cancel();
         },
         cancelOnError: true);
     return controller.stream;
   }
 
-  ///Checks if it is slow. If so, logs it.
-  void _checkSlowSql(DateTime startAt, String sql) {
-    final threshold = slowSqlThreshold ?? _defaultSlowSqlThreshold;
-    if (threshold != null) { //just in case
-      final spent = DateTime.now().difference(startAt);
-      if (spent > threshold) _onSlowSql(dataset, spent, sql);
+  /// Called before executing a SQL statement.
+  Timer _startSql() {
+    if (_defaultSlowSqlThreshold != null || slowSqlThreshold != null) {
+      _sqlStartAt = DateTime.now();
+
+      if (_onPreSlowSql != null)
+        return Timer(_calcPreSlowSql(slowSqlThreshold) ??
+            _defaultPreSlowSqlThreshold, _onPreSlowSqlTimeout);
+            //Don't use execute().timeout() to avoid any error zone issue
+    }
+    return null;
+  }
+  /// Checks if the execution is taking too long. If so, logs it.
+  void _checkSlowSql(String sql) {
+    if (_sqlStartAt != null) {
+      final spent = DateTime.now().difference(_sqlStartAt),
+        threshold = slowSqlThreshold ?? _defaultSlowSqlThreshold;
+      if (threshold != null && spent > threshold)
+        _onSlowSql(dataset, spent,
+            sql == 'commit' && _lastSql != null ? "commit: $_lastSql": sql);
         //unlike _onPreSlowSql, _onSlowSql never null
     }
+    _lastSql = sql;
   }
+  ///The last executed SQL. Used for logging slow SQL.
+  String _lastSql;
+  ///When the last SQL was executed. Used for logging slow SQL.
+  DateTime _sqlStartAt;
 
   ///Returns the first result, or null if not found.
   Future<Row> queryAny(String sql, [values])
