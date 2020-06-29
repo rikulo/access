@@ -1,5 +1,9 @@
 # Changes
 
+**1.3.0**
+
+* `configure()`'s `onPreSlowSql` argument is enhanced. You can store the message in `onPreSlowSql` and retrieve it back in `onSlowSql`.
+
 **1.2.1**
 
 * `access()`'s `command` argument can return `FutureOr<T>`

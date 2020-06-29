@@ -357,6 +357,59 @@ class DBAccess extends PostgresqlAccess {
     }
     return null;
   }
+
+  void _onPreSlowSqlTimeout() async {
+    Connection conn;
+    try {
+      conn = await _pool.connect(); //use a separated transaction
+
+      final rows = await conn.query("""
+  SELECT BdLk.pid, age(now(), BdAc.query_start), BdAc.query,
+  BiLk.pid, age(now(), BiAct.query_start), BiAct.query
+  FROM pg_catalog.pg_locks BdLk
+  JOIN pg_catalog.pg_stat_activity BdAc ON BdAc.pid = BdLk.pid
+  JOIN pg_catalog.pg_locks BiLk 
+  ON BiLk.locktype = BdLk.locktype
+  AND BiLk.DATABASE IS NOT DISTINCT FROM BdLk.DATABASE
+  AND BiLk.relation IS NOT DISTINCT FROM BdLk.relation
+  AND BiLk.page IS NOT DISTINCT FROM BdLk.page
+  AND BiLk.tuple IS NOT DISTINCT FROM BdLk.tuple
+  AND BiLk.virtualxid IS NOT DISTINCT FROM BdLk.virtualxid
+  AND BiLk.transactionid IS NOT DISTINCT FROM BdLk.transactionid
+  AND BiLk.classid IS NOT DISTINCT FROM BdLk.classid
+  AND BiLk.objid IS NOT DISTINCT FROM BdLk.objid
+  AND BiLk.objsubid IS NOT DISTINCT FROM BdLk.objsubid
+  AND BiLk.pid != BdLk.pid
+  JOIN pg_catalog.pg_stat_activity BiAct ON BiAct.pid = BiLk.pid
+  WHERE NOT BdLk.GRANTED""").toList();
+
+      if (_onPreSlowSql == null) return; //just in case
+
+      String msg;
+      if (rows.isEmpty) msg = "None";
+      else {
+        final buf = StringBuffer();
+        int i = 0;
+        for (final r in rows) {
+          if (i++ > 0) buf.write('\n');
+
+          buf..write("Blocked ")
+            ..write(r[0])..write(": ")..write(r[1])..write(' ')..writeln(r[2])
+            ..write("Blocking ")
+            ..write(r[3])..write(": ")..write(r[4])..write(' ')..write(r[5]);
+        }
+        msg = buf.toString();
+      }
+
+      await _onPreSlowSql(conn, dataset, msg);
+
+    } catch (ex, st) {
+      _logger.warning("Unable to onPreSlowSql", ex, st);
+    } finally {
+      conn?.close();
+    }
+  }
+
   /// Checks if the execution is taking too long. If so, logs it.
   void _checkSlowSql(String sql) {
     if (_sqlStartAt != null) {
@@ -784,8 +837,9 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [String append]) {
  * And, the `message` argument will carry the information about locks.
  * The implementation can use the `conn` argument to retrieve more from
  * the database. It is a different transaction than that causes slow SQL.
- * Note: currently, only [DBAccess.execute] supports it,
  * If not specified, nothing happens.
+ * The `dataset` argument will be [DBAccess.dataset], so you can use it to
+ * store the message, and then retrieve it in [onSlowSql].
  * * [getErrorMessage] - if specified, it is called to retrieve
  * a human readable message of the given [sql] and [values] when an error occurs.
  * Default: it returns a string concatenating [sql] and [values].
@@ -796,7 +850,7 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [String append]) {
  */
 Pool configure(Pool pool, {Duration slowSqlThreshold,
     void onSlowSql(Map<String, dynamic> dataset, Duration timeSpent, String sql),
-    FutureOr onPreSlowSql(Connection conn, String message),
+    FutureOr onPreSlowSql(Connection conn, Map<String, dynamic> dataset, String message),
     String getErrorMessage(String sql, values),
     bool shallLogError(DBAccess access, ex)}) {
   final p = _pool;
@@ -819,9 +873,9 @@ Duration _calcPreSlowSql(Duration dur)
 => dur == null ? null: Duration(microseconds: (dur.inMicroseconds * 95) ~/ 100);
 
 typedef void _OnSlowSql(Map<String, dynamic> dataset, Duration timeSpent, String sql);
-typedef FutureOr _OnPreSlowSql(Connection conn, String message);
 _OnSlowSql _onSlowSql;
-_OnPreSlowSql _onPreSlowSql;
+FutureOr Function(Connection conn, Map<String, dynamic> data, String message)
+  _onPreSlowSql;
 
 typedef String _GetErrorMessage(String sql, values);
 _GetErrorMessage _getErrorMessage;
@@ -833,55 +887,3 @@ void _defaultOnSlowSql(Map<String, dynamic> dataset, Duration timeSpent, String 
 typedef bool _ShallLog(DBAccess access, ex);
 _ShallLog _shallLogError;
 bool _defaultShallLog(DBAccess access, ex) => true;
-
-_onPreSlowSqlTimeout() async {
-  Connection conn;
-  try {
-    conn = await _pool.connect(); //use a separated transaction
-
-    final rows = await conn.query("""
-SELECT BdLk.pid, age(now(), BdAc.query_start), BdAc.query,
-BiLk.pid, age(now(), BiAct.query_start), BiAct.query
-FROM pg_catalog.pg_locks BdLk
-JOIN pg_catalog.pg_stat_activity BdAc ON BdAc.pid = BdLk.pid
-JOIN pg_catalog.pg_locks BiLk 
-ON BiLk.locktype = BdLk.locktype
-AND BiLk.DATABASE IS NOT DISTINCT FROM BdLk.DATABASE
-AND BiLk.relation IS NOT DISTINCT FROM BdLk.relation
-AND BiLk.page IS NOT DISTINCT FROM BdLk.page
-AND BiLk.tuple IS NOT DISTINCT FROM BdLk.tuple
-AND BiLk.virtualxid IS NOT DISTINCT FROM BdLk.virtualxid
-AND BiLk.transactionid IS NOT DISTINCT FROM BdLk.transactionid
-AND BiLk.classid IS NOT DISTINCT FROM BdLk.classid
-AND BiLk.objid IS NOT DISTINCT FROM BdLk.objid
-AND BiLk.objsubid IS NOT DISTINCT FROM BdLk.objsubid
-AND BiLk.pid != BdLk.pid
-JOIN pg_catalog.pg_stat_activity BiAct ON BiAct.pid = BiLk.pid
-WHERE NOT BdLk.GRANTED""").toList();
-
-    if (_onPreSlowSql == null) return; //just in case
-
-    String msg;
-    if (rows.isEmpty) msg = "No lock found";
-    else {
-      final buf = StringBuffer();
-      int i = 0;
-      for (final r in rows) {
-        if (i++ > 0) buf.write('\n');
-
-        buf..write("Blocked ")
-          ..write(r[0])..write(": ")..write(r[1])..write(' ')..writeln(r[2])
-          ..write("Blocking ")
-          ..write(r[3])..write(": ")..write(r[4])..write(' ')..write(r[5]);
-      }
-      msg = buf.toString();
-    }
-
-    await _onPreSlowSql(conn, msg);
-
-  } catch (ex, st) {
-    _logger.warning("Unable to onPreSlowSql", ex, st);
-  } finally {
-    conn?.close();
-  }
-}
