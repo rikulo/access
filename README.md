@@ -2,13 +2,13 @@
 
 A simple database utility for the [entity](https://github.com/rikulo/entity) library.
 
-* [API Reference](http://www.dartdocs.org/documentation/access/1.2.3)
+* [API Reference](http://www.dartdocs.org/documentation/access/1.3.0)
 
 [![Build Status](https://drone.io/github.com/rikulo/access/status.png)](https://drone.io/github.com/rikulo/access/latest)
 
 ## Use
 
-    access((access) async {
+    await access((access) async {
       await for (final row in access.query('select ...')) {
         ...
       }
