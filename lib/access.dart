@@ -209,15 +209,17 @@ class DBAccess extends PostgresqlAccess {
   }
   dynamic _rollingback = false;
 
+  /// Whether this transaction was marked as rollback.
+  /// It actually returns `rollingback != false`.
+  bool get isRollingback => _rollingback != false;
+
   DBAccess._(Connection conn): super(conn, cache: true);
 
-  /** How long to consider the query or execution of a SQL statement is slow.
-   * If not specified (i.e., null), the value specified in [configure] is used.
-   */
+  /// How long to consider the query or execution of a SQL statement is slow.
+  /// If not specified (i.e., null), the value specified in [configure] is used.
   Duration slowSqlThreshold;
 
-  /** A map of application-specific data.
-   */
+  /// A map of application-specific data.
   Map<String, dynamic> get dataset
   => _dataset != null ? _dataset: MapUtil.auto<String, dynamic>(
           () => _dataset = HashMap<String, dynamic>());

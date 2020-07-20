@@ -1,5 +1,9 @@
 # Changes
 
+**1.3.1**
+
+* `DBAccess.isRollingback` introduced.
+
 **1.3.0**
 
 * `configure()`'s `onPreSlowSql` argument is enhanced. You can store the message in `onPreSlowSql` and retrieve it back in `onSlowSql`.
