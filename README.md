@@ -14,11 +14,8 @@ A simple database utility for the [entity](https://github.com/rikulo/entity) lib
       }
       ...
       await access.execute('update...');
-    })
-    //transactions ends here; roll back if an uncaught exception is thrown
-    .catchError((ex, st) {
-      ...
     });
+    //transactions ends here; roll back if an uncaught exception is thrown
 
 ## Who Uses
 

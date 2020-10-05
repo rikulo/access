@@ -82,13 +82,10 @@ bool isNotNullViolation(ex) => isViolation(ex, pgNotNullViolation);
  *      }
  *      ...
  *      await access.execute('update...');
- *    })
+ *    });
  *    //The transaction ends here. It commits if success,
  *    //Or, rolls back if an exception is thrown or [DBAccess.rollingback]
  *    //is set to a value other than false and null.
- *    .catchError((ex, st) {
- *      ...
- *    });
  *
  * It returns what was returned by [command].
  */
@@ -130,15 +127,16 @@ Future<T> access<T>(FutureOr<T> command(DBAccess access)) async {
 
 void _rollbackError(ex, StackTrace st)
 => _logger.warning("Failed to rollback", ex, st);
+
 _asNull(_) => null;
+
 bool _isStateError(ex) => ex is StateError;
 
 typedef _ErrorTask(error);
 typedef _Task();
 
-/** The database access transaction.
- * It is designed to used with [access].
- */
+/// The database access transaction.
+/// It is designed to used with [access].
 class DBAccess extends PostgresqlAccess {
   Map<String, dynamic> _dataset;
   List<_Task> _afterCommits;
@@ -148,6 +146,22 @@ class DBAccess extends PostgresqlAccess {
 
   /// Whether this transaction is closed.
   bool get closed => _closed;
+
+  /// Starts an transactions.
+  /// You don't need to call this method if you're using [access].
+  /// 
+  /// If you prefer to handle the transaction explicitly, you can do
+  /// 
+  ///     final access = await DBAccess.begin();
+  ///     try {
+  ///        ...
+  ///     } catch (ex) {
+  ///       access.rollingback = true;
+  ///     } finally {
+  ///       access.close();
+  ///     }
+  static Future<DBAccess> begin() async
+  => DBAccess._(await _pool.connect());
 
   /// Forces the transaction to close immediately.
   /// You rarely need to call this method, since the transaction

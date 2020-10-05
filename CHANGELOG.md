@@ -1,5 +1,9 @@
 # Changes
 
+**1.4.0**
+
+* `DBAccess.begin()` introduced for users to control transactions explicitly.
+
 **1.3.1**
 
 * `DBAccess.isRollingback` introduced.
