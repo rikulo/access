@@ -158,10 +158,18 @@ class DBAccess extends PostgresqlAccess {
   ///     } catch (ex) {
   ///       access.rollingback = true;
   ///     } finally {
-  ///       access.close();
+  ///       await access.close();
   ///     }
-  static Future<DBAccess> begin() async
-  => DBAccess._(await _pool.connect());
+  static Future<DBAccess> begin() async {
+    final access = DBAccess._(await _pool.connect());
+    try {
+      await access._begin();
+    } catch (ex) {
+      access._close(ex);
+      rethrow;
+    }
+    return access;
+  }
 
   /// Forces the transaction to close immediately.
   /// You rarely need to call this method, since the transaction
