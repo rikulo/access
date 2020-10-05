@@ -1,6 +1,6 @@
 # Changes
 
-**1.4.0**
+**1.5.0**
 
 * `DBAccess.begin()` introduced for users to control transactions explicitly.
 
