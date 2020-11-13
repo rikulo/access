@@ -1,5 +1,9 @@
 # Changes
 
+**1.6.0**
+
+* The signature of `onSlowSql` changed. An extra argument called `values` added.
+
 **1.5.0**
 
 * `DBAccess.begin()` introduced for users to control transactions explicitly.

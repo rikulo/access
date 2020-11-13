@@ -329,7 +329,7 @@ class DBAccess extends PostgresqlAccess {
     final tmPreSlow = _startSql();
     try {
       final result = await conn.execute(sql, values);
-      _checkSlowSql(sql);
+      _checkSlowSql(sql, values);
       return result;
 
     } catch (ex, st) {
@@ -362,7 +362,7 @@ class DBAccess extends PostgresqlAccess {
         onDone: () {
           controller.close();
 
-          _checkSlowSql(sql);
+          _checkSlowSql(sql, values);
           tmPreSlow?.cancel();
         },
         cancelOnError: true);
@@ -435,13 +435,14 @@ class DBAccess extends PostgresqlAccess {
   }
 
   /// Checks if the execution is taking too long. If so, logs it.
-  void _checkSlowSql(String sql) {
+  void _checkSlowSql(String sql, dynamic values) {
     if (_sqlStartAt != null) {
       final spent = DateTime.now().difference(_sqlStartAt),
         threshold = slowSqlThreshold ?? _defaultSlowSqlThreshold;
       if (threshold != null && spent > threshold)
         _onSlowSql(dataset, spent,
-            sql == 'commit' && _lastSql != null ? "commit: $_lastSql": sql);
+            sql == 'commit' && _lastSql != null ? "commit: $_lastSql": sql,
+            values);
         //unlike _onPreSlowSql, _onSlowSql never null
     }
     _lastSql = sql;
@@ -860,8 +861,8 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [String append]) {
  * * [onPreSlowSql] = if specified, it is called right before [onSlowSql].
  * And, the `message` argument will carry the information about locks.
  * The implementation can use the `conn` argument to retrieve more from
- * the database. It is a different transaction than that causes slow SQL.
- * If not specified, nothing happens.
+ * the database. It is a different transaction than the one causing
+ * slow SQL. If not specified, nothing happens.
  * The `dataset` argument will be [DBAccess.dataset], so you can use it to
  * store the message, and then retrieve it in [onSlowSql].
  * * [getErrorMessage] - if specified, it is called to retrieve
@@ -873,9 +874,9 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [String append]) {
  * * It returns the previous pool, if any.
  */
 Pool configure(Pool pool, {Duration slowSqlThreshold,
-    void onSlowSql(Map<String, dynamic> dataset, Duration timeSpent, String sql),
+    void onSlowSql(Map<String, dynamic> dataset, Duration timeSpent, String sql, dynamic values),
     FutureOr onPreSlowSql(Connection conn, Map<String, dynamic> dataset, String message),
-    String getErrorMessage(String sql, values),
+    String getErrorMessage(String sql, dynamic values),
     bool shallLogError(DBAccess access, ex)}) {
   final p = _pool;
   _pool = pool;
@@ -896,16 +897,16 @@ Duration _defaultSlowSqlThreshold,
 Duration _calcPreSlowSql(Duration dur)
 => dur == null ? null: Duration(microseconds: (dur.inMicroseconds * 95) ~/ 100);
 
-typedef void _OnSlowSql(Map<String, dynamic> dataset, Duration timeSpent, String sql);
-_OnSlowSql _onSlowSql;
-FutureOr Function(Connection conn, Map<String, dynamic> data, String message)
+void Function(Map<String, dynamic> dataset, Duration timeSpent, String sql, dynamic values)
+  _onSlowSql;
+FutureOr Function(Connection conn, Map<String, dynamic> dataset, String message)
   _onPreSlowSql;
 
-typedef String _GetErrorMessage(String sql, values);
-_GetErrorMessage _getErrorMessage;
-String _defaultErrorMessage(String sql, values) => sql;
+String Function(String sql, dynamic values) _getErrorMessage;
+String _defaultErrorMessage(String sql, dynamic values) => sql;
 
-void _defaultOnSlowSql(Map<String, dynamic> dataset, Duration timeSpent, String sql) {
+void _defaultOnSlowSql(Map<String, dynamic> dataset, Duration timeSpent,
+    String sql, var values) {
   _logger.warning("Slow SQL ($timeSpent): $sql");
 }
 typedef bool _ShallLog(DBAccess access, ex);
