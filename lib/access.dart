@@ -77,7 +77,7 @@ bool isNotNullViolation(ex) => isViolation(ex, pgNotNullViolation);
 /// Returns the number of accesses being executing.
 ///
 /// Note: it can be larger than the real number of DB connections
-/// (i.e., `pooledConnectionCount`), since the number is increased when
+/// (i.e., `busyConnectionCount`), since the number is increased when
 /// [access] is called, i.e., before a DB connection is established.
 /// This number indicates it more accurate that the system is busy.
 int get currentAccessCount => _nAccess;
