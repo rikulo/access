@@ -1,5 +1,9 @@
 # Changes
 
+**1.6.1**
+
+* `currentAccessCount` introduced for knowing the system status
+
 **1.6.0**
 
 * The signature of `onSlowSql` changed. An extra argument called `values` added.

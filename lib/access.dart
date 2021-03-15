@@ -74,6 +74,15 @@ bool isForeignKeyViolation(ex) => isViolation(ex, pgForeignKeyViolation);
 ///Whether it is [PostgresqlException] about the violation of foreign keys.
 bool isNotNullViolation(ex) => isViolation(ex, pgNotNullViolation);
 
+/// Returns the number of accesses being executing.
+///
+/// Note: it can be larger than the real number of DB connections
+/// (i.e., `pooledConnectionCount`), since the number is increased when
+/// [access] is called, i.e., before a DB connection is established.
+/// This number indicates it more accurate that the system is busy.
+int get currentAccessCount => _nAccess;
+int _nAccess = 0;
+
 /** Executes a command within a transaction.
  * 
  *    access((DBAccess access) async {
@@ -94,6 +103,7 @@ Future<T> access<T>(FutureOr<T> command(DBAccess access)) async {
   bool closing = false;
   DBAccess access;
 
+  ++_nAccess;
   try {
     access = DBAccess._(await _pool.connect());
     await access._begin();
@@ -121,7 +131,8 @@ Future<T> access<T>(FutureOr<T> command(DBAccess access)) async {
 
   } finally {
     if (access != null && !access._closed)
-      access._close(error);
+      access._close(error); //never throws an exception
+    --_nAccess;
   }
 }
 
