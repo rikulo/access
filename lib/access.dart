@@ -126,7 +126,6 @@ Future<T> access<T>(FutureOr<T> command(DBAccess access)) async {
     if (access != null && !access._closed && !closing)
       await access._rollback()
       .catchError(_rollbackError);
-
     rethrow;
 
   } finally {
@@ -161,7 +160,8 @@ class DBAccess extends PostgresqlAccess {
   /// Starts an transactions.
   /// You don't need to call this method if you're using [access].
   /// 
-  /// If you prefer to handle the transaction explicitly, you can do
+  /// If you prefer to handle the transaction explicitly, you *MUST* do
+  /// as follows.
   /// 
   ///     final access = await DBAccess.begin();
   ///     try {
@@ -175,11 +175,12 @@ class DBAccess extends PostgresqlAccess {
     final access = DBAccess._(await _pool.connect());
     try {
       await access._begin();
+      ++_nAccess;
+      return access;
     } catch (ex) {
       access._close(ex);
       rethrow;
     }
-    return access;
   }
 
   /// Forces the transaction to close immediately.
@@ -208,7 +209,8 @@ class DBAccess extends PostgresqlAccess {
 
       rethrow;
     } finally {
-      _close(error);
+      _close(error); //never throws an exception
+      --_nAccess;
     }
   }
 
