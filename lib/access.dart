@@ -168,17 +168,20 @@ class DBAccess extends PostgresqlAccess {
   ///        ...
   ///     } catch (ex) {
   ///       access.rollingback = true;
+  ///       //rethrow or handle it
   ///     } finally {
   ///       await access.close();
   ///     }
   static Future<DBAccess> begin() async {
-    final access = DBAccess._(await _pool.connect());
+    DBAccess access;
+    ++_nAccess; //increase first, so [currentAccessCount] more accurate
     try {
+      access = DBAccess._(await _pool.connect());
       await access._begin();
-      ++_nAccess;
       return access;
     } catch (ex) {
-      access._close(ex);
+      access?._close(ex); //never throws an exception
+      --_nAccess;
       rethrow;
     }
   }
