@@ -1,8 +1,8 @@
 # Changes
 
-**1.6.1**
+**1.6.2**
 
-* `currentAccessCount` introduced for knowing the system status
+* `accessCount` introduced for knowing number of accesses being executed.
 
 **1.6.0**
 

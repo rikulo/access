@@ -80,7 +80,7 @@ bool isNotNullViolation(ex) => isViolation(ex, pgNotNullViolation);
 /// (i.e., `busyConnectionCount`), since the number is increased when
 /// [access] is called, i.e., before a DB connection is established.
 /// This number indicates it more accurate that the system is busy.
-int get currentAccessCount => _nAccess;
+int get accessCount => _nAccess;
 int _nAccess = 0;
 
 /** Executes a command within a transaction.
@@ -151,7 +151,8 @@ class DBAccess extends PostgresqlAccess {
   Map<String, dynamic> _dataset;
   List<_Task> _afterCommits;
   List<_ErrorTask> _afterRollbacks;
-  bool _closed = false;
+  bool _closed = false, //whether it is closed
+    _beginCounted = false; //whether [begin] is called; used to maintain [_nAccess]
   var _error; //available only if [closed]
 
   /// Whether this transaction is closed.
@@ -178,6 +179,7 @@ class DBAccess extends PostgresqlAccess {
     try {
       access = DBAccess._(await _pool.connect());
       await access._begin();
+      access._beginCounted = true;
       return access;
     } catch (ex) {
       access?._close(ex); //never throws an exception
@@ -213,7 +215,7 @@ class DBAccess extends PostgresqlAccess {
       rethrow;
     } finally {
       _close(error); //never throws an exception
-      --_nAccess;
+      if (_beginCounted) --_nAccess;
     }
   }
 
