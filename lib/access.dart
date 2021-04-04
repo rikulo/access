@@ -582,7 +582,7 @@ class DBAccess extends PostgresqlAccess {
 
     final entities = <T>[];
     await for (final row in
-        queryWith(fds, fromClause != null ? null: newInstance('*').otype,
+        queryWith(fds, fromClause != null ? fromClause: newInstance('*').otype,
         whereClause, whereValues, fromClause, shortcut, option)) {
       entities.add(await toEntity(row, fields, newInstance));
     }
@@ -638,7 +638,7 @@ class DBAccess extends PostgresqlAccess {
 
     await for (final Row row in queryWith(
         fields != null ? (LinkedHashSet.from(fields)..add(fdOid)): null,
-        fromClause != null ? null: newInstance('*').otype,
+        fromClause != null ? fromClause: newInstance('*').otype,
         whereClause, whereValues, fromClause, shortcut, option)) {
 
       final T e = await toEntity(row, fields, newInstance);
@@ -675,7 +675,7 @@ class DBAccess extends PostgresqlAccess {
     Row row;
     try {
       row = await queryWith(fds,
-        fromClause != null ? null: newInstance('*').otype,
+        fromClause != null ? fromClause: newInstance('*').otype,
         whereClause, whereValues, fromClause, shortcut, option).first;
     } on StateError catch (_) {
       //ignore
