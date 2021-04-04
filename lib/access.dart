@@ -12,6 +12,7 @@ import "package:postgresql2/pool.dart";
 import "package:entity/postgresql2.dart";
 import "package:entity/entity.dart";
 import "package:rikulo_commons/util.dart";
+import "package:rikulo_commons/async.dart";
 
 export "package:postgresql2/postgresql.dart"
   show Connection, PostgresqlException, Row;
@@ -63,8 +64,7 @@ class Not<T> {
 
 ///Whether it is [PostgresqlException] about the violation of the given [code].
 bool isViolation(ex, String code)
-=> ex is PostgresqlException && ex.serverMessage != null
-    && ex.serverMessage.code == code;
+=> ex is PostgresqlException && ex.serverMessage?.code == code;
 
 ///Whether it is [PostgresqlException] about the violation of uniqueness.
 ///It is useful with select-for-update
@@ -99,9 +99,9 @@ int _nAccess = 0;
  * It returns what was returned by [command].
  */
 Future<T> access<T>(FutureOr<T> command(DBAccess access)) async {
-  var error;
+  Object? error;
   bool closing = false;
-  DBAccess access;
+  DBAccess? access;
 
   ++_nAccess;
   try {
@@ -138,22 +138,18 @@ Future<T> access<T>(FutureOr<T> command(DBAccess access)) async {
 void _rollbackError(ex, StackTrace st)
 => _logger.warning("Failed to rollback", ex, st);
 
-_asNull(_) => null;
-
-bool _isStateError(ex) => ex is StateError;
-
-typedef _ErrorTask(error);
-typedef _Task();
+typedef FutureOr _ErrorTask(error);
+typedef FutureOr _Task();
 
 /// The database access transaction.
 /// It is designed to used with [access].
 class DBAccess extends PostgresqlAccess {
-  Map<String, dynamic> _dataset;
-  List<_Task> _afterCommits;
-  List<_ErrorTask> _afterRollbacks;
+  Map<String, dynamic>? _dataset;
+  List<_Task>? _afterCommits;
+  List<_ErrorTask>? _afterRollbacks;
   bool _closed = false, //whether it is closed
     _beginCounted = false; //whether [begin] is called; used to maintain [_nAccess]
-  var _error; //available only if [closed]
+  Object? _error; //available only if [closed]
 
   /// Whether this transaction is closed.
   bool get closed => _closed;
@@ -174,7 +170,7 @@ class DBAccess extends PostgresqlAccess {
   ///       await access.close();
   ///     }
   static Future<DBAccess> begin() async {
-    DBAccess access;
+    DBAccess? access;
     ++_nAccess; //increase first, so [currentAccessCount] more accurate
     try {
       access = DBAccess._(await _pool.connect());
@@ -257,44 +253,38 @@ class DBAccess extends PostgresqlAccess {
 
   /// How long to consider the query or execution of a SQL statement is slow.
   /// If not specified (i.e., null), the value specified in [configure] is used.
-  Duration slowSqlThreshold;
+  Duration? slowSqlThreshold;
 
   /// A map of application-specific data.
   Map<String, dynamic> get dataset
-  => _dataset != null ? _dataset: MapUtil.auto<String, dynamic>(
-          () => _dataset = HashMap<String, dynamic>());
+  => _dataset ?? (_dataset = MapUtil.auto<String, dynamic>(
+          () => _dataset = HashMap<String, dynamic>()));
 
   /** Adds a task that will be executed after the transaction is committed
    * successfully.
    * Note: [task] will be executed directly if the transaction was committed.
    */
   void afterCommit(FutureOr task()) {
-    assert(task != null);
     if (_closed) {
       if (_error == null)
         Timer.run(() => _invokeSafely(task));
       return;
     }
 
-    if (_afterCommits == null)
-      _afterCommits = <_Task>[];
-    _afterCommits.add(task);
+    (_afterCommits ?? (_afterCommits = <_Task>[])).add(task);
   }
 
   /** Adds a task that will be executed after the transaction is rolled back.
    * Note: [task] will be executed directly if the transaction was rolled back.
    */
   void afterRollback(FutureOr task(error)) {
-    assert(task != null);
     if (_closed) {
       if (_error != null)
         Timer.run(() => _invokeSafelyWith(task, _error));
       return;
     }
 
-    if (_afterRollbacks == null)
-      _afterRollbacks = <_ErrorTask>[];
-    _afterRollbacks.add(task);
+    (_afterRollbacks ?? (_afterRollbacks = <_ErrorTask>[])).add(task);
   }
 
   void _close(error) {
@@ -308,15 +298,17 @@ class DBAccess extends PostgresqlAccess {
     }
 
     if (error != null) {
-      if (_afterRollbacks != null)
+      final afterRollbacks = _afterRollbacks;
+      if (afterRollbacks != null)
         Timer.run(() async {
-          for (final task in _afterRollbacks)
+          for (final task in afterRollbacks)
             await _invokeSafelyWith(task, error);
         });
     } else {
-      if (_afterCommits != null)
+      final afterCommits = _afterCommits;
+      if (afterCommits != null)
         Timer.run(() async {
-          for (final task in _afterCommits)
+          for (final task in afterCommits)
             await _invokeSafely(task);
         });
     }
@@ -370,7 +362,7 @@ class DBAccess extends PostgresqlAccess {
       tmPreSlow = _startSql();
     conn.query(sql, values)
       .listen((data) => controller.add(data),
-        onError: (ex, StackTrace st) {
+        onError: (Object ex, StackTrace st) {
           controller.addError(ex, st);
           tmPreSlow?.cancel();
 
@@ -388,20 +380,22 @@ class DBAccess extends PostgresqlAccess {
   }
 
   /// Called before executing a SQL statement.
-  Timer _startSql() {
+  Timer? _startSql() {
     if (_defaultSlowSqlThreshold != null || slowSqlThreshold != null) {
       _sqlStartAt = DateTime.now();
 
       if (_onPreSlowSql != null)
         return Timer(_calcPreSlowSql(slowSqlThreshold) ??
-            _defaultPreSlowSqlThreshold, _onPreSlowSqlTimeout);
+            _defaultPreSlowSqlThreshold!, _onPreSlowSqlTimeout);
             //Don't use execute().timeout() to avoid any error zone issue
     }
-    return null;
   }
 
   void _onPreSlowSqlTimeout() async {
-    Connection conn;
+    final onPreSlowSql = _onPreSlowSql;
+    if (onPreSlowSql == null) return; //just in case
+
+    Connection? conn;
     try {
       conn = await _pool.connect(); //use a separated transaction
 
@@ -425,8 +419,6 @@ class DBAccess extends PostgresqlAccess {
   JOIN pg_catalog.pg_stat_activity BiAct ON BiAct.pid = BiLk.pid
   WHERE NOT BdLk.GRANTED""").toList();
 
-      if (_onPreSlowSql == null) return; //just in case
-
       String msg;
       if (rows.isEmpty) msg = "None";
       else {
@@ -443,7 +435,7 @@ class DBAccess extends PostgresqlAccess {
         msg = buf.toString();
       }
 
-      await _onPreSlowSql(conn, dataset, msg);
+      await onPreSlowSql(conn, dataset, msg);
 
     } catch (ex, st) {
       _logger.warning("Unable to onPreSlowSql", ex, st);
@@ -454,8 +446,9 @@ class DBAccess extends PostgresqlAccess {
 
   /// Checks if the execution is taking too long. If so, logs it.
   void _checkSlowSql(String sql, dynamic values) {
-    if (_sqlStartAt != null) {
-      final spent = DateTime.now().difference(_sqlStartAt),
+    final sqlStartAt = _sqlStartAt;
+    if (sqlStartAt != null) {
+      final spent = DateTime.now().difference(sqlStartAt),
         threshold = slowSqlThreshold ?? _defaultSlowSqlThreshold;
       if (threshold != null && spent > threshold)
         _onSlowSql(dataset, spent,
@@ -466,14 +459,13 @@ class DBAccess extends PostgresqlAccess {
     _lastSql = sql;
   }
   ///The last executed SQL. Used for logging slow SQL.
-  String _lastSql;
+  String? _lastSql;
   ///When the last SQL was executed. Used for logging slow SQL.
-  DateTime _sqlStartAt;
+  DateTime? _sqlStartAt;
 
   ///Returns the first result, or null if not found.
-  Future<Row> queryAny(String sql, [values])
-  => query(sql, values).first
-    .catchError(_asNull, test: _isStateError);
+  Future<Row?> queryAny(String sql, [values])
+  => StreamUtil.first(query(sql, values));
 
   /** Queries [fields] of [otype] for the criteria specified in
    * [whereValues] (AND-ed together).
@@ -481,21 +473,20 @@ class DBAccess extends PostgresqlAccess {
    * * [option] - whether to use [forUpdate], [forShare] or null.
    */
   Stream<Row> queryBy(Iterable<String> fields, String otype,
-    Map<String, dynamic> whereValues, [int option])
+    Map<String, dynamic> whereValues, [int? option])
   => _queryBy(fields, otype, whereValues, option, null);
 
   Stream<Row> _queryBy(Iterable<String> fields, String otype,
-    Map<String, dynamic> whereValues, int option, String append)
+    Map<String, dynamic> whereValues, int? option, String? append)
   => queryWith(fields, otype,
       sqlWhereBy(whereValues, append), whereValues, null, null, option);
 
   /** Queries [fields] of [otype] for the criteria specified in
    * [whereValues] (AND-ed together), or null if not found.
    */
-  Future<Row> queryAnyBy(Iterable<String> fields, String otype,
-    Map<String, dynamic> whereValues, [int option])
-  => _queryBy(fields, otype, whereValues, option, "limit 1").first
-    .catchError(_asNull, test: _isStateError);
+  Future<Row?> queryAnyBy(Iterable<String> fields, String otype,
+      Map<String, dynamic> whereValues, [int? option])
+  => StreamUtil.first(_queryBy(fields, otype, whereValues, option, "limit 1"));
 
   /** Queries [fields] of [otype] for the criteria specified in
    * [whereClause] and [whereValues].
@@ -516,12 +507,12 @@ class DBAccess extends PostgresqlAccess {
    * 
    * Note: if [fromClause] is specified, [otype] is ignored.
    */
-  Stream<Row> queryWith(Iterable<String> fields, String otype,
-      String whereClause, [Map<String, dynamic> whereValues,
-      String fromClause, String shortcut, int option]) {
+  Stream<Row> queryWith(Iterable<String>? fields, String otype,
+      String? whereClause, [Map<String, dynamic>? whereValues,
+      String? fromClause, String? shortcut, int? option]) {
     String sql = 'select ${sqlColumns(fields, shortcut)} from ';
-    sql += fromClause != null ? fromClause:
-        shortcut != null ? '"$otype" $shortcut': '"$otype"';
+    sql += fromClause ??
+        (shortcut != null ? '"$otype" $shortcut': '"$otype"');
     if (whereClause != null)
       sql += ' where $whereClause';
     if (option == forUpdate)
@@ -544,17 +535,16 @@ class DBAccess extends PostgresqlAccess {
    * Default: none. Useful if you joined other tables in [fromClause].
    * Note: [shortcut] is case insensitive.
    */
-  Future<Row> queryAnyWith(Iterable<String> fields, String otype,
-      String whereClause, [Map<String, dynamic> whereValues,
-      String fromClause, String shortcut, int option])
-  => queryWith(fields, otype, whereClause, whereValues, fromClause, shortcut, option)
-    .first
-    .catchError(_asNull, test: _isStateError);
+  Future<Row?> queryAnyWith(Iterable<String> fields, String otype,
+      String? whereClause, [Map<String, dynamic>? whereValues,
+      String? fromClause, String? shortcut, int? option])
+  => StreamUtil.first(queryWith(fields, otype, whereClause, whereValues,
+          fromClause, shortcut, option));
 
   ///Loads the entity by the given [oid], or null if not found.
-  Future<T> load<T extends Entity>(
+  Future<T?> load<T extends Entity>(
       Iterable<String> fields, T newInstance(String oid), String oid,
-      [int option])
+      [int? option])
   => loadIfAny(this, oid, newInstance, fields, option);
 
   /** Loads all entities of the given criteria (never null).
@@ -571,10 +561,10 @@ class DBAccess extends PostgresqlAccess {
    * Note: [shortcut] is case insensitive.
    */
   Future<List<T>> loadAllWith<T extends Entity>(
-      Iterable<String> fields, T newInstance(String oid),
-      String whereClause, [Map<String, dynamic> whereValues,
-      String fromClause, String shortcut, int option]) async {
-    Set<String> fds;
+      Iterable<String>? fields, T newInstance(String oid),
+      String whereClause, [Map<String, dynamic>? whereValues,
+      String? fromClause, String? shortcut, int? option]) async {
+    Set<String>? fds;
     if (fields != null) {
       fds = LinkedHashSet<String>();
       fds..add(fdOid)..addAll(fields);
@@ -582,9 +572,9 @@ class DBAccess extends PostgresqlAccess {
 
     final entities = <T>[];
     await for (final row in
-        queryWith(fds, fromClause != null ? fromClause: newInstance('*').otype,
+        queryWith(fds, fromClause ?? newInstance('*').otype,
         whereClause, whereValues, fromClause, shortcut, option)) {
-      entities.add(await toEntity(row, fields, newInstance));
+      entities.add((await toEntity(row, fields, newInstance))!);
     }
     return entities;
   }
@@ -592,7 +582,7 @@ class DBAccess extends PostgresqlAccess {
   /** Instantiates an Entity instance to represent the data in [row].
    * If [row] is, this method will return `Future.value(null)`.
    */
-  Future<T> toEntity<T extends Entity>(Row row, Iterable<String> fields,
+  Future<T?> toEntity<T extends Entity>(Row? row, Iterable<String>? fields,
       T newInstance(String oid)) {
     if (row == null)
       return Future.value();
@@ -629,19 +619,19 @@ class DBAccess extends PostgresqlAccess {
    * Note: [shortcut] is case insensitive.
    */
   Future<List<T>> loadWhile<T extends Entity>(
-      Iterable<String> fields, T newInstance(String oid),
+      Iterable<String>? fields, T newInstance(String oid),
       bool test(T lastLoaded, List<T> loaded),
-      String whereClause, [Map<String, dynamic> whereValues,
-      String fromClause, String shortcut, int option]) async {
+      String whereClause, [Map<String, dynamic>? whereValues,
+      String? fromClause, String? shortcut, int? option]) async {
 
     final loaded = <T>[];
 
     await for (final Row row in queryWith(
         fields != null ? (LinkedHashSet.from(fields)..add(fdOid)): null,
-        fromClause != null ? fromClause: newInstance('*').otype,
+        fromClause ?? newInstance('*').otype,
         whereClause, whereValues, fromClause, shortcut, option)) {
 
-      final T e = await toEntity(row, fields, newInstance);
+      final e = (await toEntity(row, fields, newInstance))!;
       loaded.add(e); //always add (i.e., add before test)
       if (!test(e, loaded))
         break;
@@ -662,26 +652,21 @@ class DBAccess extends PostgresqlAccess {
    * Default: none. Useful if you joined other tables in [fromClause].
    * Note: [shortcut] is case insensitive.
    */
-  Future<T> loadWith<T extends Entity>(
-      Iterable<String> fields, T newInstance(String oid),
-      String whereClause, [Map<String, dynamic> whereValues,
-      String fromClause, String shortcut, int option]) async {
-    Set<String> fds;
+  Future<T?> loadWith<T extends Entity>(
+      Iterable<String>? fields, T newInstance(String oid),
+      String whereClause, [Map<String, dynamic>? whereValues,
+      String? fromClause, String? shortcut, int? option]) async {
+    Set<String>? fds;
     if (fields != null) {
       fds = LinkedHashSet<String>();
       fds..add(fdOid)..addAll(fields);
     }
 
-    Row row;
-    try {
-      row = await queryWith(fds,
-        fromClause != null ? fromClause: newInstance('*').otype,
-        whereClause, whereValues, fromClause, shortcut, option).first;
-    } on StateError catch (_) {
-      //ignore
-    }
-
-    return toEntity(row, fields, newInstance);
+    final row = await StreamUtil.first(queryWith(fds,
+        fromClause ?? newInstance('*').otype,
+        whereClause, whereValues, fromClause, shortcut, option));
+    if (row != null)
+      return toEntity(row, fields, newInstance);
   }
 
   /** Loads all entities of the given AND criteria.
@@ -691,8 +676,8 @@ class DBAccess extends PostgresqlAccess {
    * or null (default; no lock).
    */
   Future<List<T>> loadAllBy<T extends Entity>(
-      Iterable<String> fields, T newInstance(String oid),
-      Map<String, dynamic> whereValues, [int option])
+      Iterable<String>? fields, T newInstance(String oid),
+      Map<String, dynamic> whereValues, [int? option])
   => loadAllWith(fields, newInstance,
       sqlWhereBy(whereValues), whereValues, null, null, option);
 
@@ -702,9 +687,9 @@ class DBAccess extends PostgresqlAccess {
    * * [option] - whether to use [forShare], [forUpdate]
    * or null (default; no lock).
    */
-  Future<T> loadBy<T extends Entity>(
-      Iterable<String> fields, T newInstance(String oid),
-      Map<String, dynamic> whereValues, [int option])
+  Future<T?> loadBy<T extends Entity>(
+      Iterable<String>? fields, T newInstance(String oid),
+      Map<String, dynamic> whereValues, [int? option])
   => loadWith(fields, newInstance,
       sqlWhereBy(whereValues, "limit 1"), whereValues, null, null, option);
 
@@ -724,7 +709,7 @@ class DBAccess extends PostgresqlAccess {
    * Example, `final oid = await insert(..., append: returning "$fdOid");`
    */
   Future<dynamic> insert(String otype, Map<String, dynamic> data,
-      {Map<String, String> types, String append}) {
+      {Map<String, String>? types, String? append}) {
     final sql = StringBuffer('insert into "')..write(otype)..write('"('),
       param = StringBuffer(" values(");
 
@@ -804,7 +789,7 @@ List firstColumns(Iterable<Row> rows) {
  * If specified, the result will be `T."field1",T."field2"` if [shortcut] is `T`.
  * Note: [shortcut] is case insensitive.
  */
-String sqlColumns(Iterable<String> fields, [String shortcut]) {
+String sqlColumns(Iterable<String>? fields, [String? shortcut]) {
   if (fields == null)
     return "*";
   if (fields.isEmpty)
@@ -835,7 +820,7 @@ final _reExpr = RegExp(r'(^[0-9]|[("+])');
  * Example, `"foo": not(null)` => `foo is not null`.
  * `"foo": not(123)` => `foo != 123`.
  */
-String sqlWhereBy(Map<String, dynamic> whereValues, [String append]) {
+String sqlWhereBy(Map<String, dynamic> whereValues, [String? append]) {
   final where = StringBuffer();
   bool first = true;
   for (final name in whereValues.keys) {
@@ -891,11 +876,11 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [String append]) {
  * 
  * * It returns the previous pool, if any.
  */
-Pool configure(Pool pool, {Duration slowSqlThreshold,
-    void onSlowSql(Map<String, dynamic> dataset, Duration timeSpent, String sql, dynamic values),
-    FutureOr onPreSlowSql(Connection conn, Map<String, dynamic> dataset, String message),
-    String getErrorMessage(String sql, dynamic values),
-    bool shallLogError(DBAccess access, ex)}) {
+Pool configure(Pool pool, {Duration? slowSqlThreshold,
+    void onSlowSql(Map<String, dynamic> dataset, Duration timeSpent, String sql, dynamic values)?,
+    FutureOr onPreSlowSql(Connection conn, Map<String, dynamic> dataset, String message)?,
+    String getErrorMessage(String sql, dynamic? values)?,
+    bool shallLogError(DBAccess access, ex)?}) {
   final p = _pool;
   _pool = pool;
   _defaultPreSlowSqlThreshold = _calcPreSlowSql(
@@ -906,27 +891,27 @@ Pool configure(Pool pool, {Duration slowSqlThreshold,
   _shallLogError = shallLogError ?? _defaultShallLog;
   return p;
 }
-Pool _pool;
+late Pool _pool;
 ///How long to consider an execution slow
-Duration _defaultSlowSqlThreshold,
+Duration? _defaultSlowSqlThreshold,
 ///How long to log locking and other info (95% of [_defaultSlowSqlThreshold])
   _defaultPreSlowSqlThreshold;
 
-Duration _calcPreSlowSql(Duration dur)
+Duration? _calcPreSlowSql(Duration? dur)
 => dur == null ? null: Duration(microseconds: (dur.inMicroseconds * 95) ~/ 100);
 
-void Function(Map<String, dynamic> dataset, Duration timeSpent, String sql, dynamic values)
+late void Function(Map<String, dynamic> dataset, Duration timeSpent, String sql, dynamic values)
   _onSlowSql;
-FutureOr Function(Connection conn, Map<String, dynamic> dataset, String message)
+FutureOr Function(Connection conn, Map<String, dynamic> dataset, String message)?
   _onPreSlowSql;
 
-String Function(String sql, dynamic values) _getErrorMessage;
-String _defaultErrorMessage(String sql, dynamic values) => sql;
+late String Function(String sql, dynamic? values) _getErrorMessage;
+String _defaultErrorMessage(String sql, dynamic? values) => sql;
 
 void _defaultOnSlowSql(Map<String, dynamic> dataset, Duration timeSpent,
     String sql, var values) {
   _logger.warning("Slow SQL ($timeSpent): $sql");
 }
-typedef bool _ShallLog(DBAccess access, ex);
-_ShallLog _shallLogError;
+
+late bool Function(DBAccess access, Object ex) _shallLogError;
 bool _defaultShallLog(DBAccess access, ex) => true;

@@ -9,16 +9,16 @@ Future purge(Connection conn,
     Map<String, IndexInfo> indexes, Map<String, RuleInfo> rules) {
 
   return Future.forEach(rules.keys,
-    (String name) => conn.execute('drop rule "$name" on "${rules[name].table}"')
+    (name) => conn.execute('drop rule "$name" on "${rules[name]!.table}"')
     .catchError((ex) {}, test: _isUndefined))
   .then((_) => Future.forEach(indexes.keys.toList().reversed,
-    (String name) => conn.execute('drop index "$name"')
+    (name) => conn.execute('drop index "$name"')
     .catchError((ex) {}, test: _isUndefined)))
   .then((_) {
-    final Set<String> tblsGened = HashSet<String>();
-    final List<_DeferredRef> refsDeferred = [];
-    for (final String otype in tables.keys)
-      _scanDeferredRefs(otype, tables[otype], tblsGened, refsDeferred);
+    final tblsGened = HashSet<String>();
+    final refsDeferred = <_DeferredRef>[];
+    for (final otype in tables.keys)
+      _scanDeferredRefs(otype, tables[otype]!, tblsGened, refsDeferred);
     return Future.forEach(refsDeferred,
         (_DeferredRef defRef) => defRef.drop(conn)
         .catchError((ex) {}, test: _isUndefined));

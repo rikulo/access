@@ -86,16 +86,15 @@ class IndexInfo {
   final List<String> columns;
   ///Types of index. Example, `gist` and `gin`.
   ///If null, default is assumed.
-  final String using;
+  final String? using;
   ///The operation class. Example: `jsonb_path_ops` and `varchar_pattern_ops`.
   ///If null, default is assumed.
-  final String ops;
+  final String? ops;
   ///Conditional index
-  final String where;
+  final String? where;
 
   IndexInfo(String this.table, List<String> this.columns,
-    {bool this.unique:false, String this.using, String this.ops,
-      String this.where});
+    {this.unique: false, this.using, this.ops, this.where});
 
   List toJson() => [table, columns, unique, using, ops, where];
 }
@@ -110,7 +109,7 @@ class RuleInfo {
 }
 
 IndexInfo Index(String table, List<String> columns,
-    {bool unique:false, String using, String ops, String where})
+    {bool unique: false, String? using, String? ops, String? where})
 => IndexInfo(table, columns, unique: unique, using: using, ops: ops,
     where: where);
 RuleInfo Rule(String table, String rule)
@@ -179,7 +178,7 @@ SqlType PrimaryKey(Iterable<String> columns) => PrimaryKeyType(columns);
 /// other key(s).
 /// 
 /// * [otype] - it is useless but for documentation purpose
-SqlType UnboundReference({String otype, String constraint: notNull})
+SqlType UnboundReference({String? otype, String constraint: notNull})
 => SqlType("text", constraint: constraint);
 
 SqlType Oid()

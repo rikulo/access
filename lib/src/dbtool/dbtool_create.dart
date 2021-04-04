@@ -11,14 +11,14 @@ Future create(Connection conn,
   final List<_DeferredRef> refsDeferred = [];
 
   for (final otype in tables.keys)
-    await _createTable(conn, otype, tables[otype], tblsGened, refsDeferred);
+    await _createTable(conn, otype, tables[otype]!, tblsGened, refsDeferred);
   for (final defRef in refsDeferred)
     await defRef.create(conn);
 
   for (final name in indexes.keys)
-    await _createIndex(conn, name, indexes[name]);
+    await _createIndex(conn, name, indexes[name]!);
   for (final name in rules.keys)
-    await _createRule(conn, name, rules[name]);
+    await _createRule(conn, name, rules[name]!);
 }
 
 Future _createTable(Connection conn, String otype, Map<String, SqlType> table,
@@ -63,7 +63,7 @@ bool _genCreateColumns(List<String> query, String otype,
     if (first) first = false;
     else query.add(',\n');
 
-    final sqlType = table[col];
+    final sqlType = table[col]!;
 
     if (col == primaryKey) {
       query..add('constraint "')..add(otype)..add('_pkey" primary key (');
@@ -108,8 +108,9 @@ Future _createIndex(Connection conn, String name, IndexInfo info) {
   query..add('index "')..add(name)..add('" on "')
     ..add(info.table)..add('"');
 
-  if (info.using != null)
-    query..add(' using ')..add(info.using)..add(' ');
+  final using = info.using;
+  if (using != null)
+    query..add(' using ')..add(using)..add(' ');
 
   query.add('(');
 
@@ -119,12 +120,14 @@ Future _createIndex(Connection conn, String name, IndexInfo info) {
     else query.add(',');
     query..add('"')..add(col)..add('"');
   }
-  if (info.ops != null)
-    query..add(' ')..add(info.ops);
+  final ops = info.ops;
+  if (ops != null)
+    query..add(' ')..add(ops);
   query.add(')');
 
-  if (info.where != null)
-    query..add(' where ')..add(info.where);
+  final where = info.where;
+  if (where != null)
+    query..add(' where ')..add(where);
 
   return conn.execute(query.join(''));
 }
