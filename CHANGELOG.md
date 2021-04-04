@@ -1,5 +1,9 @@
 # Changes
 
+**2.2.0**
+
+* Migrate to null safety
+
 **1.6.2**
 
 * `accessCount` introduced for knowing number of accesses being executed.
