@@ -520,8 +520,8 @@ class DBAccess extends PostgresqlAccess {
       String whereClause, [Map<String, dynamic> whereValues,
       String fromClause, String shortcut, int option]) {
     String sql = 'select ${sqlColumns(fields, shortcut)} from ';
-    sql += fromClause != null ? fromClause:
-        shortcut != null ? '"$otype" $shortcut': '"$otype"';
+    sql += fromClause ??
+        (shortcut != null ? '"$otype" $shortcut': '"$otype"');
     if (whereClause != null)
       sql += ' where $whereClause';
     if (option == forUpdate)
@@ -582,7 +582,7 @@ class DBAccess extends PostgresqlAccess {
 
     final entities = <T>[];
     await for (final row in
-        queryWith(fds, fromClause != null ? fromClause: newInstance('*').otype,
+        queryWith(fds, fromClause ?? newInstance('*').otype,
         whereClause, whereValues, fromClause, shortcut, option)) {
       entities.add(await toEntity(row, fields, newInstance));
     }
@@ -638,7 +638,7 @@ class DBAccess extends PostgresqlAccess {
 
     await for (final Row row in queryWith(
         fields != null ? (LinkedHashSet.from(fields)..add(fdOid)): null,
-        fromClause != null ? fromClause: newInstance('*').otype,
+        fromClause ?? newInstance('*').otype,
         whereClause, whereValues, fromClause, shortcut, option)) {
 
       final T e = await toEntity(row, fields, newInstance);
