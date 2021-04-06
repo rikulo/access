@@ -12,6 +12,7 @@ import "package:postgresql2/pool.dart";
 import "package:entity/postgresql2.dart";
 import "package:entity/entity.dart";
 import "package:rikulo_commons/util.dart";
+import "package:rikulo_commons/async.dart";
 
 export "package:postgresql2/postgresql.dart"
   show Connection, PostgresqlException, Row;
@@ -124,8 +125,7 @@ Future<T> access<T>(FutureOr<T> command(DBAccess access)) async {
   } catch (ex) {
     error = ex;
     if (access != null && !access._closed && !closing)
-      await access._rollback()
-      .catchError(_rollbackError);
+      await InvokeUtil.invokeSafely(access._rollback);
     rethrow;
 
   } finally {
@@ -134,13 +134,6 @@ Future<T> access<T>(FutureOr<T> command(DBAccess access)) async {
     --_nAccess;
   }
 }
-
-void _rollbackError(ex, StackTrace st)
-=> _logger.warning("Failed to rollback", ex, st);
-
-_asNull(_) => null;
-
-bool _isStateError(ex) => ex is StateError;
 
 typedef _ErrorTask(error);
 typedef _Task();
@@ -209,9 +202,7 @@ class DBAccess extends PostgresqlAccess {
       }
     } catch (ex) {
       error = ex;
-      await _rollback()
-      .catchError(_rollbackError);
-
+      await InvokeUtil.invokeSafely(_rollback);
       rethrow;
     } finally {
       _close(error); //never throws an exception
@@ -272,7 +263,7 @@ class DBAccess extends PostgresqlAccess {
     assert(task != null);
     if (_closed) {
       if (_error == null)
-        Timer.run(() => _invokeSafely(task));
+        Timer.run(() => InvokeUtil.invokeSafely(task));
       return;
     }
 
@@ -288,7 +279,7 @@ class DBAccess extends PostgresqlAccess {
     assert(task != null);
     if (_closed) {
       if (_error != null)
-        Timer.run(() => _invokeSafelyWith(task, _error));
+        Timer.run(() => InvokeUtil.invokeSafelyWith(task, _error));
       return;
     }
 
@@ -301,39 +292,25 @@ class DBAccess extends PostgresqlAccess {
     assert(!_closed);
     _closed = true;
     _error = error;
+
     try {
       conn.close();
     } catch (ex, st) {
-      _logger.warning("Failed to close", ex, st);
+      _logger.severe("Failed to close", ex, st);
     }
 
     if (error != null) {
       if (_afterRollbacks != null)
         Timer.run(() async {
           for (final task in _afterRollbacks)
-            await _invokeSafelyWith(task, error);
+            await InvokeUtil.invokeSafelyWith(task, error);
         });
     } else {
       if (_afterCommits != null)
         Timer.run(() async {
           for (final task in _afterCommits)
-            await _invokeSafely(task);
+            await InvokeUtil.invokeSafely(task);
         });
-    }
-  }
-
-  static Future _invokeSafely(FutureOr task()) async {
-    try {
-      await task();
-    } catch (ex, st) {
-      _logger.warning("Failed to invoke $task", ex, st);
-    }
-  }
-  static Future _invokeSafelyWith(FutureOr task(error), error) async {
-    try {
-      await task(error);
-    } catch (ex, st) {
-      _logger.warning("Failed to invoke $task with $error", ex, st);
     }
   }
 
@@ -472,8 +449,7 @@ class DBAccess extends PostgresqlAccess {
 
   ///Returns the first result, or null if not found.
   Future<Row> queryAny(String sql, [values])
-  => query(sql, values).first
-    .catchError(_asNull, test: _isStateError);
+  => StreamUtil.first(query(sql, values));
 
   /** Queries [fields] of [otype] for the criteria specified in
    * [whereValues] (AND-ed together).
@@ -494,8 +470,7 @@ class DBAccess extends PostgresqlAccess {
    */
   Future<Row> queryAnyBy(Iterable<String> fields, String otype,
     Map<String, dynamic> whereValues, [int option])
-  => _queryBy(fields, otype, whereValues, option, "limit 1").first
-    .catchError(_asNull, test: _isStateError);
+  => StreamUtil.first(_queryBy(fields, otype, whereValues, option, "limit 1"));
 
   /** Queries [fields] of [otype] for the criteria specified in
    * [whereClause] and [whereValues].
@@ -547,9 +522,8 @@ class DBAccess extends PostgresqlAccess {
   Future<Row> queryAnyWith(Iterable<String> fields, String otype,
       String whereClause, [Map<String, dynamic> whereValues,
       String fromClause, String shortcut, int option])
-  => queryWith(fields, otype, whereClause, whereValues, fromClause, shortcut, option)
-    .first
-    .catchError(_asNull, test: _isStateError);
+  => StreamUtil.first(queryWith(fields, otype, whereClause, whereValues,
+      fromClause, shortcut, option));
 
   ///Loads the entity by the given [oid], or null if not found.
   Future<T> load<T extends Entity>(
@@ -672,14 +646,9 @@ class DBAccess extends PostgresqlAccess {
       fds..add(fdOid)..addAll(fields);
     }
 
-    Row row;
-    try {
-      row = await queryWith(fds,
+    final row = await StreamUtil.first(queryWith(fds,
         fromClause != null ? fromClause: newInstance('*').otype,
-        whereClause, whereValues, fromClause, shortcut, option).first;
-    } on StateError catch (_) {
-      //ignore
-    }
+        whereClause, whereValues, fromClause, shortcut, option));
 
     return toEntity(row, fields, newInstance);
   }
