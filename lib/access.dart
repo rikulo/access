@@ -124,8 +124,7 @@ Future<T> access<T>(FutureOr<T> command(DBAccess access)) async {
   } catch (ex) {
     error = ex;
     if (access != null && !access._closed && !closing)
-      await access._rollback()
-      .catchError(_rollbackError);
+      await InvokeUtil.invokeSafely(access._rollback);
     rethrow;
 
   } finally {
@@ -134,9 +133,6 @@ Future<T> access<T>(FutureOr<T> command(DBAccess access)) async {
     --_nAccess;
   }
 }
-
-void _rollbackError(ex, StackTrace st)
-=> _logger.warning("Failed to rollback", ex, st);
 
 typedef FutureOr _ErrorTask(error);
 typedef FutureOr _Task();
@@ -205,9 +201,7 @@ class DBAccess extends PostgresqlAccess {
       }
     } catch (ex) {
       error = ex;
-      await _rollback()
-      .catchError(_rollbackError);
-
+      await InvokeUtil.invokeSafely(_rollback);
       rethrow;
     } finally {
       _close(error); //never throws an exception
@@ -267,7 +261,7 @@ class DBAccess extends PostgresqlAccess {
   void afterCommit(FutureOr task()) {
     if (_closed) {
       if (_error == null)
-        Timer.run(() => _invokeSafely(task));
+        Timer.run(() => InvokeUtil.invokeSafely(task));
       return;
     }
 
@@ -280,7 +274,7 @@ class DBAccess extends PostgresqlAccess {
   void afterRollback(FutureOr task(error)) {
     if (_closed) {
       if (_error != null)
-        Timer.run(() => _invokeSafelyWith(task, _error));
+        Timer.run(() => InvokeUtil.invokeSafelyWith(task, _error));
       return;
     }
 
@@ -302,30 +296,15 @@ class DBAccess extends PostgresqlAccess {
       if (afterRollbacks != null)
         Timer.run(() async {
           for (final task in afterRollbacks)
-            await _invokeSafelyWith(task, error);
+            await InvokeUtil.invokeSafelyWith(task, error);
         });
     } else {
       final afterCommits = _afterCommits;
       if (afterCommits != null)
         Timer.run(() async {
           for (final task in afterCommits)
-            await _invokeSafely(task);
+            await InvokeUtil.invokeSafely(task);
         });
-    }
-  }
-
-  static Future _invokeSafely(FutureOr task()) async {
-    try {
-      await task();
-    } catch (ex, st) {
-      _logger.warning("Failed to invoke $task", ex, st);
-    }
-  }
-  static Future _invokeSafelyWith(FutureOr task(error), error) async {
-    try {
-      await task(error);
-    } catch (ex, st) {
-      _logger.warning("Failed to invoke $task with $error", ex, st);
     }
   }
 
