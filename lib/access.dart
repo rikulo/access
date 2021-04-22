@@ -323,6 +323,8 @@ class DBAccess extends PostgresqlAccess {
 
     final tmPreSlow = _startSql();
     try {
+      _onExecute?.call(sql, values);
+
       final result = await conn.execute(sql, values);
       _checkSlowSql(sql, values);
       return result;
@@ -342,6 +344,8 @@ class DBAccess extends PostgresqlAccess {
   Stream<Row> query(String sql, [values]) {
     if (_closed)
       throw StateError("Closed: ${_getErrorMessage(sql, values)}");
+
+    _onQuery?.call(sql, values);
 
     final controller = StreamController<Row>(),
       tmPreSlow = _startSql();
@@ -852,6 +856,10 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [String append]) {
  * slow SQL. If not specified, nothing happens.
  * The `dataset` argument will be [DBAccess.dataset], so you can use it to
  * store the message, and then retrieve it in [onSlowSql].
+ * * [onQuery] - a callback when [DBAccess.query] is called.
+ * It is used for debugging purpose.
+ * * [onExecute] - a callback when [DBAccess.execute] is called.
+ * It is used for debugging purpose.
  * * [getErrorMessage] - if specified, it is called to retrieve
  * a human readable message of the given [sql] and [values] when an error occurs.
  * Default: it returns a string concatenating [sql] and [values].
@@ -863,6 +871,8 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [String append]) {
 Pool configure(Pool pool, {Duration slowSqlThreshold,
     void onSlowSql(Map<String, dynamic> dataset, Duration timeSpent, String sql, dynamic values),
     FutureOr onPreSlowSql(Connection conn, Map<String, dynamic> dataset, String message),
+    void onQuery(String sql, dynamic values),
+    void onExecute(String sql, dynamic values),
     String getErrorMessage(String sql, dynamic values),
     bool shallLogError(DBAccess access, ex)}) {
   final p = _pool;
@@ -871,6 +881,8 @@ Pool configure(Pool pool, {Duration slowSqlThreshold,
       _defaultSlowSqlThreshold = slowSqlThreshold);
   _onSlowSql = onSlowSql ?? _defaultOnSlowSql;
   _onPreSlowSql = onPreSlowSql;
+  _onQuery = onQuery;
+  _onExecute = onExecute;
   _getErrorMessage = getErrorMessage ?? _defaultErrorMessage;
   _shallLogError = shallLogError ?? _defaultShallLog;
   return p;
@@ -888,6 +900,7 @@ void Function(Map<String, dynamic> dataset, Duration timeSpent, String sql, dyna
   _onSlowSql;
 FutureOr Function(Connection conn, Map<String, dynamic> dataset, String message)
   _onPreSlowSql;
+void Function(String sql, dynamic values) _onQuery, _onExecute;
 
 String Function(String sql, dynamic values) _getErrorMessage;
 String _defaultErrorMessage(String sql, dynamic values) => sql;

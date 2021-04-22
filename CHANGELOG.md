@@ -1,5 +1,9 @@
 # Changes
 
+**1.6.3**
+
+* `onQuery` and `onExecute` supported in `configure` for easy debugging.
+
 **1.6.2**
 
 * `accessCount` introduced for knowing number of accesses being executed.
