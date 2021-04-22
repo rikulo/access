@@ -1,6 +1,6 @@
 # Changes
 
-**1.6.3**
+**1.6.4**
 
 * `onQuery` and `onExecute` supported in `configure` for easy debugging.
 
