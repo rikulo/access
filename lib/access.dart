@@ -17,6 +17,8 @@ import "package:rikulo_commons/async.dart";
 export "package:postgresql2/postgresql.dart"
   show Connection, PostgresqlException, Row;
 
+part "src/access/configure.dart";
+
 final _logger = Logger("access");
 
 const String
@@ -87,7 +89,7 @@ int _nAccess = 0;
 /** Executes a command within a transaction.
  * 
  *    access((DBAccess access) async {
- *      await for (final Row row in await access.query('select ...')) {
+ *      await for (final row in await access.query('select ...')) {
  *        ...
  *      }
  *      ...
@@ -453,7 +455,7 @@ class DBAccess extends PostgresqlAccess {
 
   ///Returns the first result, or null if not found.
   Future<Row> queryAny(String sql, [values])
-  => StreamUtil.first(query(sql, values));
+  => StreamUtil.first(query(_limit1(sql), values));
 
   /** Queries [fields] of [otype] for the criteria specified in
    * [whereValues] (AND-ed together).
@@ -526,7 +528,8 @@ class DBAccess extends PostgresqlAccess {
   Future<Row> queryAnyWith(Iterable<String> fields, String otype,
       String whereClause, [Map<String, dynamic> whereValues,
       String fromClause, String shortcut, int option])
-  => StreamUtil.first(queryWith(fields, otype, whereClause, whereValues,
+  => StreamUtil.first(queryWith(fields, otype,
+      _limit1(whereClause), whereValues,
       fromClause, shortcut, option));
 
   ///Loads the entity by the given [oid], or null if not found.
@@ -614,7 +617,7 @@ class DBAccess extends PostgresqlAccess {
 
     final loaded = <T>[];
 
-    await for (final Row row in queryWith(
+    await for (final row in queryWith(
         fields != null ? (LinkedHashSet.from(fields)..add(fdOid)): null,
         fromClause ?? newInstance('*').otype,
         whereClause, whereValues, fromClause, shortcut, option)) {
@@ -652,7 +655,7 @@ class DBAccess extends PostgresqlAccess {
 
     final row = await StreamUtil.first(queryWith(fds,
         fromClause != null ? fromClause: newInstance('*').otype,
-        whereClause, whereValues, fromClause, shortcut, option));
+        _limit1(whereClause), whereValues, fromClause, shortcut, option));
 
     return toEntity(row, fields, newInstance);
   }
@@ -749,7 +752,7 @@ class DBAccess extends PostgresqlAccess {
 ///Collects the first column of [Row] into a list.
 List firstColumns(Iterable<Row> rows) {
   final result = [];
-  for (final Row row in rows)
+  for (final row in rows)
     result.add(row[0]);
   return result;
 }
@@ -837,78 +840,7 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [String append]) {
   return where.toString();
 }
 
-/** Configures the access library.
- * 
- * Note: it must be called with a non-null pool before calling [access]
- * to start a transaction.
- * 
- * * [pool] - the pool used to establish a connection
- * * [slowSql] - how long to consider a query or an execution is slow.
- * It is used to detect if any slow SQL statement. Default: null (no detect).
- * * [onSlowSql] - if specified, it is called when a slow query is detected.
- * The `dataset` argument will be [DBAccess.dataset], so you can use it to
- * pass information to this callback.
- * If not specified, the slow SQL statement will be logged directly.
- * * [onPreSlowSql] = if specified, it is called right before [onSlowSql].
- * And, the `message` argument will carry the information about locks.
- * The implementation can use the `conn` argument to retrieve more from
- * the database. It is a different transaction than the one causing
- * slow SQL. If not specified, nothing happens.
- * The `dataset` argument will be [DBAccess.dataset], so you can use it to
- * store the message, and then retrieve it in [onSlowSql].
- * * [onQuery] - a callback when [DBAccess.query] is called.
- * It is used for debugging purpose.
- * * [onExecute] - a callback when [DBAccess.execute] is called.
- * It is used for debugging purpose.
- * * [getErrorMessage] - if specified, it is called to retrieve
- * a human readable message of the given [sql] and [values] when an error occurs.
- * Default: it returns a string concatenating [sql] and [values].
- * * [shallLogError] - test if the given exception shall be logged.
- * Default: always true. You can turn the log off by returning false.
- * 
- * * It returns the previous pool, if any.
- */
-Pool configure(Pool pool, {Duration slowSqlThreshold,
-    void onSlowSql(Map<String, dynamic> dataset, Duration timeSpent, String sql, dynamic values),
-    FutureOr onPreSlowSql(Connection conn, Map<String, dynamic> dataset, String message),
-    void onQuery(String sql, dynamic values),
-    void onExecute(String sql, dynamic values),
-    String getErrorMessage(String sql, dynamic values),
-    bool shallLogError(DBAccess access, ex)}) {
-  final p = _pool;
-  _pool = pool;
-  _defaultPreSlowSqlThreshold = _calcPreSlowSql(
-      _defaultSlowSqlThreshold = slowSqlThreshold);
-  _onSlowSql = onSlowSql ?? _defaultOnSlowSql;
-  _onPreSlowSql = onPreSlowSql;
-  _onQuery = onQuery;
-  _onExecute = onExecute;
-  _getErrorMessage = getErrorMessage ?? _defaultErrorMessage;
-  _shallLogError = shallLogError ?? _defaultShallLog;
-  return p;
-}
-Pool _pool;
-///How long to consider an execution slow
-Duration _defaultSlowSqlThreshold,
-///How long to log locking and other info (95% of [_defaultSlowSqlThreshold])
-  _defaultPreSlowSqlThreshold;
-
-Duration _calcPreSlowSql(Duration dur)
-=> dur == null ? null: Duration(microseconds: (dur.inMicroseconds * 95) ~/ 100);
-
-void Function(Map<String, dynamic> dataset, Duration timeSpent, String sql, dynamic values)
-  _onSlowSql;
-FutureOr Function(Connection conn, Map<String, dynamic> dataset, String message)
-  _onPreSlowSql;
-void Function(String sql, dynamic values) _onQuery, _onExecute;
-
-String Function(String sql, dynamic values) _getErrorMessage;
-String _defaultErrorMessage(String sql, dynamic values) => sql;
-
-void _defaultOnSlowSql(Map<String, dynamic> dataset, Duration timeSpent,
-    String sql, var values) {
-  _logger.warning("Slow SQL ($timeSpent): $sql");
-}
-typedef bool _ShallLog(DBAccess access, ex);
-_ShallLog _shallLogError;
-bool _defaultShallLog(DBAccess access, ex) => true;
+/// Put "limit 1" into [sql] if not there.
+String _limit1(String sql)
+=> _reLimit.hasMatch(sql) ? sql: '$sql limit 1';
+final _reLimit = RegExp(r'\slimit\s', caseSensitive: false);
