@@ -842,5 +842,6 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [String append]) {
 
 /// Put "limit 1" into [sql] if not there.
 String _limit1(String sql)
-=> _reLimit.hasMatch(sql) ? sql: '$sql limit 1';
-final _reLimit = RegExp(r'\slimit\s', caseSensitive: false);
+=> !_reSelect.hasMatch(sql) || _reLimit.hasMatch(sql) ? sql: '$sql limit 1';
+final _reLimit = RegExp(r'\slimit\s', caseSensitive: false),
+  _reSelect = RegExp(r'\sselect\s', caseSensitive: false);
