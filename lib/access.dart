@@ -265,7 +265,7 @@ class DBAccess extends PostgresqlAccess {
     assert(task != null);
     if (_closed) {
       if (_error == null)
-        Timer.run(() => InvokeUtil.invokeSafely(task));
+        Timer.run(() => _invokeTask(task));
       return;
     }
 
@@ -281,7 +281,7 @@ class DBAccess extends PostgresqlAccess {
     assert(task != null);
     if (_closed) {
       if (_error != null)
-        Timer.run(() => InvokeUtil.invokeSafelyWith(task, _error));
+        Timer.run(() => _invokeTaskWith(task, _error));
       return;
     }
 
@@ -305,13 +305,13 @@ class DBAccess extends PostgresqlAccess {
       if (_afterRollbacks != null)
         Timer.run(() async {
           for (final task in _afterRollbacks)
-            await InvokeUtil.invokeSafelyWith(task, error);
+            await _invokeTaskWith(task, error);
         });
     } else {
       if (_afterCommits != null)
         Timer.run(() async {
           for (final task in _afterCommits)
-            await InvokeUtil.invokeSafely(task);
+            await _invokeTask(task);
         });
     }
   }
@@ -845,3 +845,19 @@ String _limit1(String sql)
 => !_reSelect.hasMatch(sql) || _reLimit.hasMatch(sql) ? sql: '$sql limit 1';
 final _reLimit = RegExp(r'(\slimit\s|;)', caseSensitive: false),
   _reSelect = RegExp(r'^\s*select\s', caseSensitive: false);
+
+Future _invokeTask(FutureOr task()) async {
+  try {
+    return await task();
+  } catch (ex, st) {
+    _logger.severe("Failed to invoke $task", ex, st);
+  }
+}
+
+Future _invokeTaskWith<T>(FutureOr task(T arg), T arg) async {
+  try {
+    return await task(arg);
+  } catch (ex, st) {
+    _logger.severe("Failed to invoke $task with $arg", ex, st);
+  }
+}
