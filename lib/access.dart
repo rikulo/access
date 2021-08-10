@@ -848,7 +848,7 @@ final _reLimit = RegExp(r'(\slimit\s|;)', caseSensitive: false),
 
 Future _invokeTask(FutureOr task()) async {
   try {
-    return await task();
+    await task();
   } catch (ex, st) {
     _logger.severe("Failed to invoke $task", ex, st);
   }
@@ -856,7 +856,7 @@ Future _invokeTask(FutureOr task()) async {
 
 Future _invokeTaskWith<T>(FutureOr task(T arg), T arg) async {
   try {
-    return await task(arg);
+    await task(arg);
   } catch (ex, st) {
     _logger.severe("Failed to invoke $task with $arg", ex, st);
   }
