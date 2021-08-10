@@ -1,8 +1,16 @@
 # Changes
 
+**2.2.1**
+
+* Merge 1.6.4
+
 **2.2.0**
 
 * Migrate to null safety
+
+**1.6.4**
+
+* `onQuery` and `onExecute` supported in `configure` for easy debugging.
 
 **1.6.2**
 

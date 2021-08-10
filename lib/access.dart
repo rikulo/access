@@ -17,6 +17,8 @@ import "package:rikulo_commons/async.dart";
 export "package:postgresql2/postgresql.dart"
   show Connection, PostgresqlException, Row;
 
+part "src/access/configure.dart";
+
 final _logger = Logger("access");
 
 const String
@@ -86,7 +88,7 @@ int _nAccess = 0;
 /** Executes a command within a transaction.
  * 
  *    access((DBAccess access) async {
- *      await for (final Row row in await access.query('select ...')) {
+ *      await for (final row in await access.query('select ...')) {
  *        ...
  *      }
  *      ...
@@ -261,7 +263,7 @@ class DBAccess extends PostgresqlAccess {
   void afterCommit(FutureOr task()) {
     if (_closed) {
       if (_error == null)
-        Timer.run(() => InvokeUtil.invokeSafely(task));
+        Timer.run(() => _invokeTask(task));
       return;
     }
 
@@ -274,7 +276,7 @@ class DBAccess extends PostgresqlAccess {
   void afterRollback(FutureOr task(error)) {
     if (_closed) {
       if (_error != null)
-        Timer.run(() => InvokeUtil.invokeSafelyWith(task, _error));
+        Timer.run(() => _invokeTaskWith(task, _error));
       return;
     }
 
@@ -285,10 +287,11 @@ class DBAccess extends PostgresqlAccess {
     assert(!_closed);
     _closed = true;
     _error = error;
+
     try {
       conn.close();
     } catch (ex, st) {
-      _logger.warning("Failed to close", ex, st);
+      _logger.severe("Failed to close", ex, st);
     }
 
     if (error != null) {
@@ -296,14 +299,14 @@ class DBAccess extends PostgresqlAccess {
       if (afterRollbacks != null)
         Timer.run(() async {
           for (final task in afterRollbacks)
-            await InvokeUtil.invokeSafelyWith(task, error);
+            await _invokeTaskWith(task, error);
         });
     } else {
       final afterCommits = _afterCommits;
       if (afterCommits != null)
         Timer.run(() async {
           for (final task in afterCommits)
-            await InvokeUtil.invokeSafely(task);
+            await _invokeTask(task);
         });
     }
   }
@@ -317,6 +320,8 @@ class DBAccess extends PostgresqlAccess {
 
     final tmPreSlow = _startSql();
     try {
+      _onExecute?.call(sql, values);
+
       final result = await conn.execute(sql, values);
       _checkSlowSql(sql, values);
       return result;
@@ -336,6 +341,8 @@ class DBAccess extends PostgresqlAccess {
   Stream<Row> query(String sql, [values]) {
     if (_closed)
       throw StateError("Closed: ${_getErrorMessage(sql, values)}");
+
+    _onQuery?.call(sql, values);
 
     final controller = StreamController<Row>(),
       tmPreSlow = _startSql();
@@ -444,7 +451,7 @@ class DBAccess extends PostgresqlAccess {
 
   ///Returns the first result, or null if not found.
   Future<Row?> queryAny(String sql, [values])
-  => StreamUtil.first(query(sql, values));
+  => StreamUtil.first(query(_limit1(sql), values));
 
   /** Queries [fields] of [otype] for the criteria specified in
    * [whereValues] (AND-ed together).
@@ -515,11 +522,11 @@ class DBAccess extends PostgresqlAccess {
    * Note: [shortcut] is case insensitive.
    */
   Future<Row?> queryAnyWith(Iterable<String> fields, String otype,
-      String? whereClause, [Map<String, dynamic>? whereValues,
+      String whereClause, [Map<String, dynamic>? whereValues,
       String? fromClause, String? shortcut, int? option])
-  => StreamUtil.first(queryWith(fields, otype, whereClause, whereValues,
-          fromClause, shortcut, option));
-
+  => StreamUtil.first(queryWith(fields, otype,
+      _limit1(whereClause), whereValues,
+      fromClause, shortcut, option));
   ///Loads the entity by the given [oid], or null if not found.
   Future<T?> load<T extends Entity>(
       Iterable<String> fields, T newInstance(String oid), String oid,
@@ -605,7 +612,7 @@ class DBAccess extends PostgresqlAccess {
 
     final loaded = <T>[];
 
-    await for (final Row row in queryWith(
+    await for (final row in queryWith(
         fields != null ? (LinkedHashSet.from(fields)..add(fdOid)): null,
         fromClause ?? newInstance('*').otype,
         whereClause, whereValues, fromClause, shortcut, option)) {
@@ -643,8 +650,7 @@ class DBAccess extends PostgresqlAccess {
 
     final row = await StreamUtil.first(queryWith(fds,
         fromClause ?? newInstance('*').otype,
-        whereClause, whereValues, fromClause, shortcut, option));
-    if (row != null)
+        _limit1(whereClause), whereValues, fromClause, shortcut, option));
       return toEntity(row, fields, newInstance);
   }
 
@@ -740,7 +746,7 @@ class DBAccess extends PostgresqlAccess {
 ///Collects the first column of [Row] into a list.
 List firstColumns(Iterable<Row> rows) {
   final result = [];
-  for (final Row row in rows)
+  for (final row in rows)
     result.add(row[0]);
   return result;
 }
@@ -828,69 +834,24 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [String? append]) {
   return where.toString();
 }
 
-/** Configures the access library.
- * 
- * Note: it must be called with a non-null pool before calling [access]
- * to start a transaction.
- * 
- * * [pool] - the pool used to establish a connection
- * * [slowSql] - how long to consider a query or an execution is slow.
- * It is used to detect if any slow SQL statement. Default: null (no detect).
- * * [onSlowSql] - if specified, it is called when a slow query is detected.
- * The `dataset` argument will be [DBAccess.dataset], so you can use it to
- * pass information to this callback.
- * If not specified, the slow SQL statement will be logged directly.
- * * [onPreSlowSql] = if specified, it is called right before [onSlowSql].
- * And, the `message` argument will carry the information about locks.
- * The implementation can use the `conn` argument to retrieve more from
- * the database. It is a different transaction than the one causing
- * slow SQL. If not specified, nothing happens.
- * The `dataset` argument will be [DBAccess.dataset], so you can use it to
- * store the message, and then retrieve it in [onSlowSql].
- * * [getErrorMessage] - if specified, it is called to retrieve
- * a human readable message of the given [sql] and [values] when an error occurs.
- * Default: it returns a string concatenating [sql] and [values].
- * * [shallLogError] - test if the given exception shall be logged.
- * Default: always true. You can turn the log off by returning false.
- * 
- * * It returns the previous pool, if any.
- */
-Pool configure(Pool pool, {Duration? slowSqlThreshold,
-    void onSlowSql(Map<String, dynamic> dataset, Duration timeSpent, String sql, dynamic values)?,
-    FutureOr onPreSlowSql(Connection conn, Map<String, dynamic> dataset, String message)?,
-    String getErrorMessage(String sql, dynamic? values)?,
-    bool shallLogError(DBAccess access, ex)?}) {
-  final p = _pool;
-  _pool = pool;
-  _defaultPreSlowSqlThreshold = _calcPreSlowSql(
-      _defaultSlowSqlThreshold = slowSqlThreshold);
-  _onSlowSql = onSlowSql ?? _defaultOnSlowSql;
-  _onPreSlowSql = onPreSlowSql;
-  _getErrorMessage = getErrorMessage ?? _defaultErrorMessage;
-  _shallLogError = shallLogError ?? _defaultShallLog;
-  return p;
-}
-late Pool _pool;
-///How long to consider an execution slow
-Duration? _defaultSlowSqlThreshold,
-///How long to log locking and other info (95% of [_defaultSlowSqlThreshold])
-  _defaultPreSlowSqlThreshold;
+/// Put "limit 1" into [sql] if not there.
+String _limit1(String sql)
+=> !_reSelect.hasMatch(sql) || _reLimit.hasMatch(sql) ? sql: '$sql limit 1';
+final _reLimit = RegExp(r'(\slimit\s|;)', caseSensitive: false),
+  _reSelect = RegExp(r'^\s*select\s', caseSensitive: false);
 
-Duration? _calcPreSlowSql(Duration? dur)
-=> dur == null ? null: Duration(microseconds: (dur.inMicroseconds * 95) ~/ 100);
-
-late void Function(Map<String, dynamic> dataset, Duration timeSpent, String sql, dynamic values)
-  _onSlowSql;
-FutureOr Function(Connection conn, Map<String, dynamic> dataset, String message)?
-  _onPreSlowSql;
-
-late String Function(String sql, dynamic? values) _getErrorMessage;
-String _defaultErrorMessage(String sql, dynamic? values) => sql;
-
-void _defaultOnSlowSql(Map<String, dynamic> dataset, Duration timeSpent,
-    String sql, var values) {
-  _logger.warning("Slow SQL ($timeSpent): $sql");
+Future _invokeTask(FutureOr task()) async {
+  try {
+    await task();
+  } catch (ex, st) {
+    _logger.severe("Failed to invoke $task", ex, st);
+  }
 }
 
-late bool Function(DBAccess access, Object ex) _shallLogError;
-bool _defaultShallLog(DBAccess access, ex) => true;
+Future _invokeTaskWith<T>(FutureOr task(T arg), T arg) async {
+  try {
+    await task(arg);
+  } catch (ex, st) {
+    _logger.severe("Failed to invoke $task with $arg", ex, st);
+  }
+}
