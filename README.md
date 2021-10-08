@@ -3,8 +3,7 @@
 A simple database utility for the [entity](https://github.com/rikulo/entity) library.
 
 * [API Reference](https://pub.dev/documentation/access/latest/)
-
-[![Build Status](https://drone.io/github.com/rikulo/access/status.png)](https://drone.io/github.com/rikulo/access/latest)
+* [Github Repos](https://github.com/rikulo/access)
 
 ## Use
 
