@@ -34,7 +34,7 @@ part of access;
  * 
  * * It returns the previous pool, if any.
  */
-Pool configure(Pool pool, {Duration? slowSqlThreshold,
+Pool? configure(Pool pool, {Duration? slowSqlThreshold,
     void onSlowSql(Map<String, dynamic> dataset, Duration timeSpent, String sql, dynamic values)?,
     FutureOr onPreSlowSql(Connection conn, Map<String, dynamic> dataset, String message)?,
     void onQuery(String sql, dynamic values)?,
@@ -53,7 +53,7 @@ Pool configure(Pool pool, {Duration? slowSqlThreshold,
   _shallLogError = shallLogError ?? _defaultShallLog;
   return p;
 }
-late Pool _pool;
+Pool? _pool;
 ///How long to consider an execution slow
 Duration? _defaultSlowSqlThreshold,
 ///How long to log locking and other info (95% of [_defaultSlowSqlThreshold])

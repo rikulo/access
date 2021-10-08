@@ -107,7 +107,7 @@ Future<T> access<T>(FutureOr<T> command(DBAccess access)) async {
 
   ++_nAccess;
   try {
-    access = DBAccess._(await _pool.connect());
+    access = DBAccess._(await _pool!.connect());
     await access._begin();
 
     final result = await command(access);
@@ -171,7 +171,7 @@ class DBAccess extends PostgresqlAccess {
     DBAccess? access;
     ++_nAccess; //increase first, so [currentAccessCount] more accurate
     try {
-      access = DBAccess._(await _pool.connect());
+      access = DBAccess._(await _pool!.connect());
       await access._begin();
       access._beginCounted = true;
       return access;
@@ -383,7 +383,7 @@ class DBAccess extends PostgresqlAccess {
 
     Connection? conn;
     try {
-      conn = await _pool.connect(); //use a separated transaction
+      conn = await _pool!.connect(); //use a separated transaction
 
       final rows = await conn.query("""
   SELECT BdLk.pid, age(now(), BdAc.query_start), BdAc.query,
