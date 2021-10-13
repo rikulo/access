@@ -529,7 +529,7 @@ class DBAccess extends PostgresqlAccess {
       fromClause, shortcut, option));
   ///Loads the entity by the given [oid], or null if not found.
   Future<T?> load<T extends Entity>(
-      Iterable<String> fields, T newInstance(String oid), String oid,
+      Iterable<String> fields, T newInstance(String oid), String? oid,
       [int? option])
   => loadIfAny(this, oid, newInstance, fields, option);
 
