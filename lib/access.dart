@@ -458,11 +458,11 @@ class DBAccess extends PostgresqlAccess {
    * 
    * * [option] - whether to use [forUpdate], [forShare] or null.
    */
-  Stream<Row> queryBy(Iterable<String> fields, String otype,
+  Stream<Row> queryBy(Iterable<String>? fields, String otype,
     Map<String, dynamic> whereValues, [int? option])
   => _queryBy(fields, otype, whereValues, option, null);
 
-  Stream<Row> _queryBy(Iterable<String> fields, String otype,
+  Stream<Row> _queryBy(Iterable<String>? fields, String otype,
     Map<String, dynamic> whereValues, int? option, String? append)
   => queryWith(fields, otype,
       sqlWhereBy(whereValues, append), whereValues, null, null, option);
@@ -470,7 +470,7 @@ class DBAccess extends PostgresqlAccess {
   /** Queries [fields] of [otype] for the criteria specified in
    * [whereValues] (AND-ed together), or null if not found.
    */
-  Future<Row?> queryAnyBy(Iterable<String> fields, String otype,
+  Future<Row?> queryAnyBy(Iterable<String>? fields, String otype,
       Map<String, dynamic> whereValues, [int? option])
   => StreamUtil.first(_queryBy(fields, otype, whereValues, option, "limit 1"));
 
@@ -521,7 +521,7 @@ class DBAccess extends PostgresqlAccess {
    * Default: none. Useful if you joined other tables in [fromClause].
    * Note: [shortcut] is case insensitive.
    */
-  Future<Row?> queryAnyWith(Iterable<String> fields, String otype,
+  Future<Row?> queryAnyWith(Iterable<String>? fields, String otype,
       String whereClause, [Map<String, dynamic>? whereValues,
       String? fromClause, String? shortcut, int? option])
   => StreamUtil.first(queryWith(fields, otype,
@@ -529,7 +529,7 @@ class DBAccess extends PostgresqlAccess {
       fromClause, shortcut, option));
   ///Loads the entity by the given [oid], or null if not found.
   Future<T?> load<T extends Entity>(
-      Iterable<String> fields, T newInstance(String oid), String? oid,
+      Iterable<String>? fields, T newInstance(String oid), String? oid,
       [int? option])
   => loadIfAny(this, oid, newInstance, fields, option);
 
