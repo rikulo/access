@@ -451,7 +451,7 @@ class DBAccess extends PostgresqlAccess {
 
   ///Returns the first result, or null if not found.
   Future<Row?> queryAny(String sql, [values])
-  => StreamUtil.first(query(_limit1(sql), values));
+  => StreamUtil.first(query(_limit1NS(sql), values));
 
   /** Queries [fields] of [otype] for the criteria specified in
    * [whereValues] (AND-ed together).
@@ -522,7 +522,7 @@ class DBAccess extends PostgresqlAccess {
    * Note: [shortcut] is case insensitive.
    */
   Future<Row?> queryAnyWith(Iterable<String>? fields, String otype,
-      String whereClause, [Map<String, dynamic>? whereValues,
+      String? whereClause, [Map<String, dynamic>? whereValues,
       String? fromClause, String? shortcut, int? option])
   => StreamUtil.first(queryWith(fields, otype,
       _limit1(whereClause), whereValues,
@@ -548,7 +548,7 @@ class DBAccess extends PostgresqlAccess {
    */
   Future<List<T>> loadAllWith<T extends Entity>(
       Iterable<String>? fields, T newInstance(String oid),
-      String whereClause, [Map<String, dynamic>? whereValues,
+      String? whereClause, [Map<String, dynamic>? whereValues,
       String? fromClause, String? shortcut, int? option]) async {
     Set<String>? fds;
     if (fields != null) {
@@ -607,7 +607,7 @@ class DBAccess extends PostgresqlAccess {
   Future<List<T>> loadWhile<T extends Entity>(
       Iterable<String>? fields, T newInstance(String oid),
       bool test(T lastLoaded, List<T> loaded),
-      String whereClause, [Map<String, dynamic>? whereValues,
+      String? whereClause, [Map<String, dynamic>? whereValues,
       String? fromClause, String? shortcut, int? option]) async {
 
     final loaded = <T>[];
@@ -640,7 +640,7 @@ class DBAccess extends PostgresqlAccess {
    */
   Future<T?> loadWith<T extends Entity>(
       Iterable<String>? fields, T newInstance(String oid),
-      String whereClause, [Map<String, dynamic>? whereValues,
+      String? whereClause, [Map<String, dynamic>? whereValues,
       String? fromClause, String? shortcut, int? option]) async {
     Set<String>? fds;
     if (fields != null) {
@@ -835,7 +835,10 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [String? append]) {
 }
 
 /// Put "limit 1" into [sql] if not there.
-String _limit1(String sql)
+String? _limit1(String? sql)
+=> sql == null ? null: _limit1NS(sql);
+
+String _limit1NS(String sql)
 => !_reSelect.hasMatch(sql) || _reLimit.hasMatch(sql) ? sql: '$sql limit 1';
 final _reLimit = RegExp(r'(\slimit\s|;)', caseSensitive: false),
   _reSelect = RegExp(r'^\s*select\s', caseSensitive: false);
