@@ -1,10 +1,10 @@
 # Changes
 
-**2.2.2**
+**2.0.2**
 
 * `DBAccess.toEntityNS` added
 
-**2.2.0**
+**2.0.0**
 
 * Migrate to null safety
 
