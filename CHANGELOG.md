@@ -1,8 +1,8 @@
 # Changes
 
-**2.2.1**
+**2.2.2**
 
-* Merge 1.6.4
+* `DBAccess.toEntityNS` added
 
 **2.2.0**
 
