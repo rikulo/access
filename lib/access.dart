@@ -560,25 +560,24 @@ class DBAccess extends PostgresqlAccess {
     await for (final row in
         queryWith(fds, fromClause ?? newInstance('*').otype,
         whereClause, whereValues, fromClause, shortcut, option)) {
-      entities.add((await toEntityNS(row, fields, newInstance)));
+      entities.add(toEntityNS(row, fields, newInstance));
     }
     return entities;
   }
 
   /// Instantiates an Entity instance to represent the data in [row].
   /// If [row] is null, this method will return `Future.value(null)`.
-  Future<T?> toEntity<T extends Entity>(Row? row, Iterable<String>? fields,
+  T? toEntity<T extends Entity>(Row? row, Iterable<String>? fields,
       T newInstance(String oid))
-  => row == null ? Future.value(): toEntityNS(row, fields, newInstance);
+  => row == null ? null: toEntityNS(row, fields, newInstance);
 
   /// Instantiates an Entity instance to represent the data in [row].
-  Future<T> toEntityNS<T extends Entity>(Row row, Iterable<String>? fields,
+  T toEntityNS<T extends Entity>(Row row, Iterable<String>? fields,
       T newInstance(String oid)) {
     final data = HashMap<String, dynamic>();
     row.forEach((String name, value) => data[name] = value);
     assert(data.containsKey(fdOid)); //fdOid is required.
-    return loadIfAny_(this, data.remove(fdOid) as String, newInstance,
-        (e, fds, option) => data, fields) as Future<T>;
+    return bind_(this, data.remove(fdOid) as String, newInstance, data, fields);
   }
 
   /** Loads entities while [test] returns true.
@@ -618,7 +617,7 @@ class DBAccess extends PostgresqlAccess {
         fromClause ?? newInstance('*').otype,
         whereClause, whereValues, fromClause, shortcut, option)) {
 
-      final e = (await toEntity(row, fields, newInstance))!;
+      final e = toEntityNS(row, fields, newInstance);
       loaded.add(e); //always add (i.e., add before test)
       if (!test(e, loaded))
         break;
