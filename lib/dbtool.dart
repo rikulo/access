@@ -6,7 +6,6 @@ library access.dbtool;
 import "dart:async";
 import "dart:collection" show HashSet;
 
-import "package:postgresql2/postgresql.dart";
 import "package:entity/entity.dart" show fdOid;
 
 import "access.dart";

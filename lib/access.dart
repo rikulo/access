@@ -267,7 +267,7 @@ class DBAccess extends PostgresqlAccess {
       return;
     }
 
-    (_afterCommits ?? (_afterCommits = <_Task>[])).add(task);
+    (_afterCommits ??= <_Task>[]).add(task);
   }
 
   /** Adds a task that will be executed after the transaction is rolled back.
@@ -280,7 +280,7 @@ class DBAccess extends PostgresqlAccess {
       return;
     }
 
-    (_afterRollbacks ?? (_afterRollbacks = <_ErrorTask>[])).add(task);
+    (_afterRollbacks ??= <_ErrorTask>[]).add(task);
   }
 
   void _close(error) {
@@ -459,11 +459,11 @@ class DBAccess extends PostgresqlAccess {
    * * [option] - whether to use [forUpdate], [forShare] or null.
    */
   Stream<Row> queryBy(Iterable<String>? fields, String otype,
-    Map<String, dynamic> whereValues, [int? option])
+    Map<String, dynamic> whereValues, [AccessOption? option])
   => _queryBy(fields, otype, whereValues, option, null);
 
   Stream<Row> _queryBy(Iterable<String>? fields, String otype,
-    Map<String, dynamic> whereValues, int? option, String? append)
+    Map<String, dynamic> whereValues, AccessOption? option, String? append)
   => queryWith(fields, otype,
       sqlWhereBy(whereValues, append), whereValues, null, null, option);
 
@@ -471,7 +471,7 @@ class DBAccess extends PostgresqlAccess {
    * [whereValues] (AND-ed together), or null if not found.
    */
   Future<Row?> queryAnyBy(Iterable<String>? fields, String otype,
-      Map<String, dynamic> whereValues, [int? option])
+      Map<String, dynamic> whereValues, [AccessOption? option])
   => StreamUtil.first(_queryBy(fields, otype, whereValues, option, "limit 1"));
 
   /** Queries [fields] of [otype] for the criteria specified in
@@ -495,7 +495,7 @@ class DBAccess extends PostgresqlAccess {
    */
   Stream<Row> queryWith(Iterable<String>? fields, String otype,
       String? whereClause, [Map<String, dynamic>? whereValues,
-      String? fromClause, String? shortcut, int? option]) {
+      String? fromClause, String? shortcut, AccessOption? option]) {
     String sql = 'select ${sqlColumns(fields, shortcut)} from ';
     sql += fromClause ??
         (shortcut != null ? '"$otype" $shortcut': '"$otype"');
@@ -523,14 +523,14 @@ class DBAccess extends PostgresqlAccess {
    */
   Future<Row?> queryAnyWith(Iterable<String>? fields, String otype,
       String? whereClause, [Map<String, dynamic>? whereValues,
-      String? fromClause, String? shortcut, int? option])
+      String? fromClause, String? shortcut, AccessOption? option])
   => StreamUtil.first(queryWith(fields, otype,
       _limit1(whereClause), whereValues,
       fromClause, shortcut, option));
   ///Loads the entity by the given [oid], or null if not found.
   Future<T?> load<T extends Entity>(
       Iterable<String>? fields, T newInstance(String oid), String? oid,
-      [int? option])
+      [AccessOption? option])
   => loadIfAny(this, oid, newInstance, fields, option);
 
   /** Loads all entities of the given criteria (never null).
@@ -549,7 +549,7 @@ class DBAccess extends PostgresqlAccess {
   Future<List<T>> loadAllWith<T extends Entity>(
       Iterable<String>? fields, T newInstance(String oid),
       String? whereClause, [Map<String, dynamic>? whereValues,
-      String? fromClause, String? shortcut, int? option]) async {
+      String? fromClause, String? shortcut, AccessOption? option]) async {
     Set<String>? fds;
     if (fields != null) {
       fds = LinkedHashSet<String>();
@@ -608,7 +608,7 @@ class DBAccess extends PostgresqlAccess {
       Iterable<String>? fields, T newInstance(String oid),
       bool test(T lastLoaded, List<T> loaded),
       String? whereClause, [Map<String, dynamic>? whereValues,
-      String? fromClause, String? shortcut, int? option]) async {
+      String? fromClause, String? shortcut, AccessOption? option]) async {
 
     final loaded = <T>[];
 
@@ -641,7 +641,7 @@ class DBAccess extends PostgresqlAccess {
   Future<T?> loadWith<T extends Entity>(
       Iterable<String>? fields, T newInstance(String oid),
       String? whereClause, [Map<String, dynamic>? whereValues,
-      String? fromClause, String? shortcut, int? option]) async {
+      String? fromClause, String? shortcut, AccessOption? option]) async {
     Set<String>? fds;
     if (fields != null) {
       fds = LinkedHashSet<String>();
@@ -662,7 +662,7 @@ class DBAccess extends PostgresqlAccess {
    */
   Future<List<T>> loadAllBy<T extends Entity>(
       Iterable<String>? fields, T newInstance(String oid),
-      Map<String, dynamic> whereValues, [int? option])
+      Map<String, dynamic> whereValues, [AccessOption? option])
   => loadAllWith(fields, newInstance,
       sqlWhereBy(whereValues), whereValues, null, null, option);
 
@@ -674,7 +674,7 @@ class DBAccess extends PostgresqlAccess {
    */
   Future<T?> loadBy<T extends Entity>(
       Iterable<String>? fields, T newInstance(String oid),
-      Map<String, dynamic> whereValues, [int? option])
+      Map<String, dynamic> whereValues, [AccessOption? option])
   => loadWith(fields, newInstance,
       sqlWhereBy(whereValues, "limit 1"), whereValues, null, null, option);
 

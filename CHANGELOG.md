@@ -1,5 +1,9 @@
 # Changes
 
+**2.5.0**
+
+* Use `AccessOption` introduced in entity 2.5.0
+
 **2.0.2**
 
 * `DBAccess.toEntityNS` added
