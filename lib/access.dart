@@ -684,6 +684,12 @@ class DBAccess extends PostgresqlAccess {
     return execute('delete from "$otype" where "$fdOid"=@$fdOid',
       {fdOid: oid});
   }
+
+  /// Tests if the given [oid] exists.
+  Future<bool> exists(String otype, String oid) async
+  => null != await queryAny(
+      'select 1 from "$otype" where "$fdOid"=@$fdOid limit 1', {fdOid: oid});
+
   /** Inserts the entity specified in data.
    * Note: all fields found in [data] are written. You have to
    * remove unnecessary files by yourself, such as [fdOtype].

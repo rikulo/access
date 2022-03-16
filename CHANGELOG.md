@@ -1,5 +1,9 @@
 # Changes
 
+**2.5.1**
+
+* `DBAccess.exists` added
+
 **2.5.0**
 
 * Use `AccessOption` introduced in entity 2.5.0
