@@ -1,5 +1,9 @@
 # Changes
 
+**2.5.2**
+
+* `onQuery` and `onExecute` of `configure()` are deprecated. Please use database's driver instead.
+
 **2.5.1**
 
 * `DBAccess.exists` added

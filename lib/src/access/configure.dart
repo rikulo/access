@@ -22,9 +22,6 @@ part of access;
  * slow SQL. If not specified, nothing happens.
  * The `dataset` argument will be [DBAccess.dataset], so you can use it to
  * store the message, and then retrieve it in [onSlowSql].
- * * [onQuery] - a callback when [DBAccess.query] is called.
- * It is used for debugging purpose.
- * * [onExecute] - a callback when [DBAccess.execute] is called.
  * It is used for debugging purpose.
  * * [getErrorMessage] - if specified, it is called to retrieve
  * a human readable message of the given [sql] and [values] when an error occurs.
@@ -37,7 +34,9 @@ part of access;
 Pool? configure(Pool pool, {Duration? slowSqlThreshold,
     void onSlowSql(Map<String, dynamic> dataset, Duration timeSpent, String sql, dynamic values)?,
     FutureOr onPreSlowSql(Connection conn, Map<String, dynamic> dataset, String message)?,
+    @deprecated
     void onQuery(String sql, dynamic values)?,
+    @deprecated
     void onExecute(String sql, dynamic values)?,
     String getErrorMessage(String sql, dynamic values)?,
     bool shallLogError(DBAccess access, ex)?}) {
