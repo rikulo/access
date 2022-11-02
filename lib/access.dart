@@ -327,7 +327,7 @@ class DBAccess extends PostgresqlAccess {
       return result;
 
     } catch (ex, st) {
-      if (_shallLogError(this, ex))
+      if (_shallLogError(this, sql, ex))
         _logger.severe("Failed to execute: ${_getErrorMessage(sql, values)}", ex, st);
       rethrow;
 
@@ -352,7 +352,7 @@ class DBAccess extends PostgresqlAccess {
           controller.addError(ex, st);
           tmPreSlow?.cancel();
 
-          if (_shallLogError(this, ex))
+          if (_shallLogError(this, sql, ex))
             _logger.severe("Failed to query: ${_getErrorMessage(sql, values)}", ex, st);
         },
         onDone: () {

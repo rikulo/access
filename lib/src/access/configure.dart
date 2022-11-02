@@ -39,7 +39,7 @@ Pool? configure(Pool pool, {Duration? slowSqlThreshold,
     @deprecated
     void onExecute(String sql, dynamic values)?,
     String getErrorMessage(String sql, dynamic values)?,
-    bool shallLogError(DBAccess access, ex)?}) {
+    bool shallLogError(DBAccess access, String sql, Object ex)?}) {
   final p = _pool;
   _pool = pool;
   _defaultPreSlowSqlThreshold = _calcPreSlowSql(
@@ -74,5 +74,5 @@ void _defaultOnSlowSql(Map<String, dynamic> dataset, Duration timeSpent,
   _logger.warning("Slow SQL ($timeSpent): $sql");
 }
 
-late bool Function(DBAccess access, Object ex) _shallLogError;
-bool _defaultShallLog(DBAccess access, ex) => true;
+late bool Function(DBAccess access, String sql, Object ex) _shallLogError;
+bool _defaultShallLog(DBAccess access, String sql, Object ex) => true;

@@ -1,8 +1,12 @@
 # Changes
 
+**2.6.0**
+
+* The signature of `shallLogError` callback changed to `bool shallLogError(DBAccess access, String sql, Object ex)`.
+
 **2.5.2**
 
-* `onQuery` and `onExecute` of `configure()` are deprecated. Please use database's driver instead.
+* `onQuery` and `onExecute` of `configure()` are deprecated. Please configure [Pool](https://pub.dev/documentation/postgresql2/latest/postgresql.pool/Pool-class.html) instead.
 
 **2.5.1**
 
