@@ -33,7 +33,10 @@ const String
   pgNotNullViolation = "23502",
   pgForeignKeyViolation = "23503",
   pgUniqueViolation = "23505",
-  pgCheckViolation = "23514";
+  pgCheckViolation = "23514",
+  pgInvalidRegex = "2201B",
+  pgProgramLimitExceeded = "54000",
+  pgOutOfMemory = '53200';
 
 /// Used in the `whereValues` of [DBAccess.loadBy], [DBAccess.queryBy],
 /// and [sqlWhereBy] to indicate a field shall not be the given value,
@@ -702,34 +705,33 @@ class DBAccess extends PostgresqlAccess {
   Future<dynamic> insert(String otype, Map<String, dynamic> data,
       {Map<String, String>? types, String? append}) {
     final sql = StringBuffer('insert into "')..write(otype)..write('"('),
-      param = StringBuffer(" values(");
+      values = StringBuffer(" values(");
 
     bool first = true;
-    for (final fd in data.keys) {
+    data.forEach((fd, val) {
       if (first) first = false;
       else {
         sql.write(',');
-        param.write(',');
+        values.write(',');
       }
       sql..write('"')..write(fd)..write('"');
 
-      param..write('@')..write(fd);
-      if (types != null) {
-        final type = types[fd];
-        if (type != null)
-          param..write(':')..write(type);
-      }
-    }
+      String? type;
+      if (types != null && (type = types[fd]) != null)
+        values..write('@')..write(fd)..write(':')..write(type);
+      else
+        values.write(_pool!.typeConverter.encode(val, null));
+    });
 
     sql.write(')');
-    param.write(')');
+    values.write(')');
     bool bReturning = false;
     if (append != null) {
       bReturning = append.trim().startsWith('returning');
-      param..write(' ')..write(append);
+      values..write(' ')..write(append);
     }
 
-    sql.write(param);
+    sql.write(values);
     final stmt = sql.toString();
     if (bReturning)
       return query(stmt, data).first.then(_firstCol);
@@ -814,26 +816,25 @@ final _reExpr = RegExp(r'(^[0-9]|[("+])');
 String sqlWhereBy(Map<String, dynamic> whereValues, [String? append]) {
   final where = StringBuffer();
   bool first = true;
-  for (final name in whereValues.keys) {
+  whereValues.forEach((name, value) {
     if (first) first = false;
     else where.write(' and ');
 
     where..write('"')..write(name);
 
-    var value = whereValues[name];
     bool negate;
     if (negate = value is Not) value = value.value;
 
     if (value != null) {
       where.write('"');
       if (negate) where.write('!');
-      where..write('=@')..write(name);
+      where..write('=')..write(_pool!.typeConverter.encode(value, null));
     } else {
       where.write('" is ');
       if (negate) where.write("not ");
       where.write('null');
     }
-  }
+  });
 
   if (append != null)
     where..write(' ')..write(append);
