@@ -1,5 +1,5 @@
 name: access
-version: 2.6.0
+version: 2.6.1
 description: A simple database utility for the entity library and PostgreSQL.
 homepage: https://github.com/rikulo/access
 documentation: https://github.com/rikulo/access

@@ -1,5 +1,9 @@
 # Changes
 
+**2.6.1**
+
+* `pgInvalidRegex`, `pgProgramLimitExceeded` and `pgOutOfMemory` added.
+
 **2.6.0**
 
 * The signature of `shallLogError` callback changed to `bool shallLogError(DBAccess access, String sql, Object ex)`.
