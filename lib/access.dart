@@ -741,9 +741,6 @@ class DBAccess extends PostgresqlAccess {
   Future _commit() => execute('commit');
   //Rollback
   Future _rollback() => execute('rollback');
-
-  @override
-  String toString() => "DBAccess:$hashCode";
 }
 
 ///Collects the first column of [Row] into a list.
