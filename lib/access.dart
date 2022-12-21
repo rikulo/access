@@ -715,12 +715,7 @@ class DBAccess extends PostgresqlAccess {
         values.write(',');
       }
       sql..write('"')..write(fd)..write('"');
-
-      String? type;
-      if (types != null && (type = types[fd]) != null)
-        values..write('@')..write(fd)..write(':')..write(type);
-      else
-        values.write(_pool!.typeConverter.encode(val, null));
+      values.write(_pool!.typeConverter.encode(val, types?[fd]));
     });
 
     sql.write(')');
