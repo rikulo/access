@@ -8,12 +8,20 @@ Future purge(Connection conn,
     Map<String, Map<String, SqlType>> tables,
     Map<String, IndexInfo> indexes, Map<String, RuleInfo> rules) {
 
-  return Future.forEach(rules.keys,
-    (name) => conn.execute('drop rule "$name" on "${rules[name]!.table}"')
-    .catchError((ex) {}, test: _isUndefined))
-  .then((_) => Future.forEach(indexes.keys.toList().reversed,
-    (name) => conn.execute('drop index "$name"')
-    .catchError((ex) {}, test: _isUndefined)))
+  return Future.forEach(rules.keys, (name) async {
+    try {
+      return await conn.execute('drop rule "$name" on "${rules[name]!.table}"');
+    } catch (ex) {
+      if (!_isUndefined(ex)) rethrow;
+    }
+  })
+  .then((_) => Future.forEach(indexes.keys.toList().reversed, (name) async {
+    try {
+      return await conn.execute('drop index "$name"');
+    } catch (ex) {
+      if (!_isUndefined(ex)) rethrow;
+    }
+  }))
   .then((_) {
     final tblsGened = HashSet<String>();
     final refsDeferred = <_DeferredRef>[];
@@ -23,11 +31,13 @@ Future purge(Connection conn,
         (_DeferredRef defRef) => defRef.drop(conn)
         .catchError((ex) {}, test: _isUndefined));
   })
-  .then((_) => Future.forEach(
-    tables.keys.toList().reversed,
-    (String name) => conn.execute('drop table "$name"')
-    .catchError((ex) {}, test: _isUndefined)
-  ));
+  .then((_) => Future.forEach(tables.keys.toList().reversed, (name) async {
+    try {
+      return await conn.execute('drop table "$name"');
+    } catch (ex) {
+      if (!_isUndefined(ex)) rethrow;
+    }
+  }));
 }
 
 void _scanDeferredRefs(String otype, Map<String, SqlType> table,

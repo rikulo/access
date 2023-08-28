@@ -29,7 +29,7 @@ const String
 
 ///Represents a SQL type
 abstract class SqlType {
-  factory SqlType(String type, {String constraint: notNull})
+  factory SqlType(String type, {String constraint = notNull})
   => _SqlType(type, constraint: constraint);
 
   ///Returns the string that will be part of SQL statement.
@@ -38,8 +38,8 @@ abstract class SqlType {
 }
 
 abstract class ReferenceType extends SqlType {
-  factory ReferenceType(String otype, {String constraint: notNull,
-    String cascade = "", String column: fdOid})
+  factory ReferenceType(String otype, {String constraint = notNull,
+    String cascade = "", String column = fdOid})
   => _RefType(otype, constraint, cascade, column);
 
   ///Returns the SQL statment depending on if the reference is deferred.
@@ -93,7 +93,7 @@ class IndexInfo {
   final String? where;
 
   IndexInfo(String this.table, List<String> this.columns,
-    {this.unique: false, this.using, this.ops, this.where});
+    {this.unique = false, this.using, this.ops, this.where});
 
   List toJson() => [table, columns, unique, using, ops, where];
 }
@@ -108,61 +108,61 @@ class RuleInfo {
 }
 
 IndexInfo Index(String table, List<String> columns,
-    {bool unique: false, String? using, String? ops, String? where})
+    {bool unique = false, String? using, String? ops, String? where})
 => IndexInfo(table, columns, unique: unique, using: using, ops: ops,
     where: where);
 RuleInfo Rule(String table, String rule)
 => RuleInfo(table, rule);
 
-SqlType Text({String constraint: notNull})
+SqlType Text({String constraint = notNull})
 => SqlType("text", constraint: constraint);
 
-SqlType Citext({String constraint: notNull})
+SqlType Citext({String constraint = notNull})
 => SqlType("citext", constraint: constraint);
 
-SqlType Char(int length, {String constraint: notNull})
+SqlType Char(int length, {String constraint = notNull})
 => SqlType("char($length)", constraint: constraint);
 
-SqlType Timestamptz({String constraint: notNull})
+SqlType Timestamptz({String constraint = notNull})
 => SqlType("timestamptz(3)", constraint: constraint);
 
-SqlType Integer({String constraint: notNull})
+SqlType Integer({String constraint = notNull})
 => SqlType("integer", constraint: constraint);
 
-SqlType Smallint({String constraint: notNull})
+SqlType Smallint({String constraint = notNull})
 => SqlType("smallint", constraint: constraint);
 
-SqlType Bigint({String constraint: notNull})
+SqlType Bigint({String constraint = notNull})
 => SqlType("bigint", constraint: constraint);
 
-SqlType Double({String constraint: notNull})
+SqlType Double({String constraint = notNull})
 => SqlType("double precision", constraint: constraint);
 
-SqlType Real({String constraint: notNull})
+SqlType Real({String constraint = notNull})
 => SqlType("real", constraint: constraint);
 
-SqlType Boolean({String constraint: notNull})
+SqlType Boolean({String constraint = notNull})
 => SqlType("boolean", constraint: constraint);
 
-SqlType Serial({String constraint: notNull})
+SqlType Serial({String constraint = notNull})
 => SqlType("serial", constraint: constraint);
 
-SqlType Bigserial({String constraint: notNull})
+SqlType Bigserial({String constraint = notNull})
 => SqlType("bigserial", constraint: constraint);
 
-SqlType Json({String constraint: notNull})
+SqlType Json({String constraint = notNull})
 => SqlType("json", constraint: constraint);
 
-SqlType Jsonb({String constraint: notNull})
+SqlType Jsonb({String constraint = notNull})
 => SqlType("jsonb", constraint: constraint);
 
-SqlType Tsvector({String constraint: notNull})
+SqlType Tsvector({String constraint = notNull})
 => SqlType("tsvector", constraint: constraint);
 
 /// A reference that refers to a record from another table.
 /// It creates a foreign-key constraint to ensure the relationship.
-SqlType Reference(String otype, {String constraint: notNull,
-    String cascade = "", String column: fdOid})
+SqlType Reference(String otype, {String constraint = notNull,
+    String cascade = "", String column = fdOid})
 => ReferenceType(otype, constraint: constraint,
       cascade: cascade, column: column);
 
@@ -177,7 +177,7 @@ SqlType PrimaryKey(Iterable<String> columns) => PrimaryKeyType(columns);
 /// other key(s).
 /// 
 /// * [otype] - it is useless but for documentation purpose
-SqlType UnboundReference({String? otype, String constraint: notNull})
+SqlType UnboundReference({String? otype, String constraint = notNull})
 => SqlType("text", constraint: constraint);
 
 SqlType Oid()
@@ -203,7 +203,7 @@ class _SqlType implements SqlType {
   final String type;
   final String constraint;
 
-  _SqlType(String this.type, {String this.constraint: notNull});
+  _SqlType(String this.type, {String this.constraint = notNull});
 
   @override
   String toSqlString() => "$type $constraint";
