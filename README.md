@@ -20,3 +20,4 @@ A simple database utility for the [entity](https://github.com/rikulo/entity) lib
 
 * [Quire](https://quire.io) - a simple, collaborative, multi-level task management tool.
 * [Keikai](https://keikai.io) - a sophisticated spreadsheet for big data
+* [Ottava](https://ottava.io) - a no-code SaaS platform simplifying data management, chart creation, and data analysis.

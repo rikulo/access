@@ -780,6 +780,8 @@ String sqlColumns(Iterable<String>? fields, [String? shortcut]) {
   if (fields.isEmpty)
     return '1';
 
+  assert(fields is Set || fields.toSet().length == fields.length, "Dup? $fields");
+
   final sql = StringBuffer();
   bool first = true;
   for (final field in fields) {
