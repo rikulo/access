@@ -108,6 +108,8 @@ Future<T> access<T>(FutureOr<T> command(DBAccess access)) async {
   bool closing = false;
   DBAccess? access;
 
+  await onAccess?.call(command, _nAccess);
+
   ++_nAccess;
   try {
     access = DBAccess._(await _pool!.connect());
@@ -834,6 +836,14 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [String? append]) {
     where..write(' ')..write(append);
   return where.toString();
 }
+
+/// A callback, if specified, is called before starting an access
+/// (aka., a transaction).
+///
+/// - [accessCount] number of transactions before starting a transaction
+/// for [command].
+FutureOr Function(FutureOr Function(DBAccess access) command, int accessCount)?
+  onAccess;
 
 /// Put "limit 1" into [sql] if not there.
 String? _limit1(String? sql)

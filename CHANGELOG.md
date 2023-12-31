@@ -1,5 +1,9 @@
 # Changes
 
+**3.0.1**
+
+* The `onAccess` callback is added for monitoring the transactions.
+
 **2.6.1**
 
 * `pgInvalidRegex`, `pgProgramLimitExceeded` and `pgOutOfMemory` added.
