@@ -1,12 +1,12 @@
 name: access
-version: 3.0.1
+version: 3.1.0
 description: A simple database utility for the entity library and PostgreSQL.
 homepage: https://github.com/rikulo/access
 documentation: https://github.com/rikulo/access
 dev_dependencies:
   test: any
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '>=3.1.0 <4.0.0'
 dependencies:
   entity: ">=2.5.0"
   postgresql2: '>=0.5.0'
