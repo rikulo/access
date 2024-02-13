@@ -1,8 +1,12 @@
 # Changes
 
+**3.1.0**
+
+* `onAccess`'s signature changed.
+
 **3.0.1**
 
-* The `onAccess` callback is added for monitoring the transactions.
+* The `onAccess` callback added for monitoring the transactions.
 
 **2.6.1**
 

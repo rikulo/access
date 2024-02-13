@@ -108,10 +108,10 @@ Future<T> access<T>(FutureOr<T> command(DBAccess access)) async {
   bool closing = false;
   DBAccess? access;
 
-  await onAccess?.call(command, _nAccess);
-
   ++_nAccess;
   try {
+    onAccess?.call(command, _nAccess);
+
     access = DBAccess._(await _pool!.connect());
     await access._begin();
 
@@ -443,7 +443,7 @@ class DBAccess extends PostgresqlAccess {
         threshold = slowSqlThreshold ?? _defaultSlowSqlThreshold;
       if (threshold != null && spent > threshold)
         _onSlowSql(dataset, spent,
-            sql == 'commit' && _lastSql != null ? "commit: $_lastSql": sql,
+            sql == 'commit' && _lastSql != null ? "$_lastSql > commit": sql,
             values);
         //unlike _onPreSlowSql, _onSlowSql never null
     }
@@ -842,8 +842,12 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [String? append]) {
 ///
 /// - [accessCount] number of transactions before starting a transaction
 /// for [command].
-FutureOr Function(FutureOr Function(DBAccess access) command, int accessCount)?
+void Function(FutureOr Function(DBAccess access) command, int accessCount)?
   onAccess;
+  // The signature can't return FutureOr => O/W, we have to use:
+  //  await onAccess?.call(...);
+  // Then, it means `++_nAccess` won't be called immediately.
+  // It means checking [accessCount] before calling [access] won't be reliable.
 
 /// Put "limit 1" into [sql] if not there.
 String? _limit1(String? sql)
