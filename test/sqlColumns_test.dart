@@ -8,13 +8,17 @@ import 'package:access/access.dart';
 
 void main() {
   test("sqlColumns", () {
-    final cases = [
-      [['fA', 'fB'], '"fA","fB"'],
-      [['1', 'max("foo")'], '1,max("foo")'],
-      [['f1', 'f1+f2'], '"f1",f1+f2'],
+    final cases = <(List<String>?, String)>[
+      (['fA', 'fB'], '"fA","fB"'),
+      (['1', 'max("foo")'], '1,max("foo")'),
+      (['f1', 'f1+f2'], '"f1",f1+f2'),
+      ([], '1'),
+      (null, '*'),
+      (['count(*)'], 'count(*)'),
+      (['distinct "user"'], 'distinct "user"'),
     ];
 
-    for (final c in cases)
-      expect(sqlColumns(c[0] as List<String>), c[1]);
+    for (final (cols, result) in cases)
+      expect(sqlColumns(cols), result);
   });
 }
