@@ -1,5 +1,10 @@
 # Changes
 
+**3.1.1**
+
+* `addSqlColumns` added.
+* `queryWith`'s `whereClause` can have no condition, but `order`, `limit`...
+
 **3.1.0**
 
 * `onAccess`'s signature changed.

@@ -501,17 +501,27 @@ class DBAccess extends PostgresqlAccess {
   Stream<Row> queryWith(Iterable<String>? fields, String otype,
       String? whereClause, [Map<String, dynamic>? whereValues,
       String? fromClause, String? shortcut, AccessOption? option]) {
-    String sql = 'select ${sqlColumns(fields, shortcut)} from ';
-    sql += fromClause ??
-        (shortcut != null ? '"$otype" $shortcut': '"$otype"');
-    if (whereClause != null)
-      sql += ' where $whereClause';
-    if (option == forUpdate)
-      sql += ' for update';
-    else if (option == forShare)
-      sql += ' for share';
-    return query(sql, whereValues);
+    final sql = StringBuffer('select ');
+    addSqlColumns(sql, fields, shortcut);
+    sql.write(' from');
+
+    if (fromClause != null) sql..write(' ')..write(fromClause);
+    else {
+      sql..write(' "')..write(otype)..write('"');
+      if (shortcut != null) sql..write(' ')..write(shortcut);
+    }
+
+    if (whereClause != null) {
+      if (!_reNoWhere.hasMatch(whereClause))
+        sql.write(' where');
+      sql..write(' ')..write(whereClause);
+    }
+
+    if (option == forUpdate) sql.write(' for update');
+    else if (option == forShare) sql.write(' for share');
+    return query(sql.toString(), whereValues);
   }
+  static final _reNoWhere = RegExp(r'^\s*(?:order|group|limit|for)', caseSensitive: false);
 
   /** Returns the first result, or null if not found.
    * 
@@ -777,14 +787,28 @@ List firstColumns(Iterable<Row> rows) {
  * Note: [shortcut] is case insensitive.
  */
 String sqlColumns(Iterable<String>? fields, [String? shortcut]) {
-  if (fields == null)
-    return "*";
-  if (fields.isEmpty)
-    return '1';
+  if (fields == null) return "*";
+  if (fields.isEmpty) return '1';
+
+  final sql = StringBuffer();
+  addSqlColumns(sql, fields, shortcut);
+  return sql.toString();
+}
+
+/// Adds a list of [fields] into [sql] by separating them with comma
+/// See also [sqlColumns].
+void addSqlColumns(StringBuffer sql, Iterable<String>? fields, [String? shortcut]) {
+  if (fields == null) {
+    sql.write("*");
+    return;
+  }
+  if (fields.isEmpty) {
+    sql.write('1');
+    return;
+  }
 
   assert(fields is Set || fields.toSet().length == fields.length, "Dup? $fields");
 
-  final sql = StringBuffer();
   bool first = true;
   for (final field in fields) {
     if (first) first = false;
@@ -798,9 +822,8 @@ String sqlColumns(Iterable<String>? fields, [String? shortcut]) {
       sql..write('"')..write(field)..write('"');
     }
   }
-  return sql.toString();
 }
-final _reExpr = RegExp(r'(^[0-9]|[("+])');
+final _reExpr = RegExp(r'(?:^[0-9]|[("+])');
 
 /** Returns the where criteria (without where) by anding [whereValues].
  * 
@@ -855,7 +878,7 @@ String? _limit1(String? sql)
 
 String _limit1NS(String sql)
 => !_reSelect.hasMatch(sql) || _reLimit.hasMatch(sql) ? sql: '$sql limit 1';
-final _reLimit = RegExp(r'(\slimit\s|;)', caseSensitive: false),
+final _reLimit = RegExp(r'(?:\slimit\s|;)', caseSensitive: false),
   _reSelect = RegExp(r'^\s*select\s', caseSensitive: false);
 
 Future _invokeTask(FutureOr task()) async {
