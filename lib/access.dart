@@ -44,14 +44,35 @@ const String
 /// 
 /// Example,
 /// ```
-///    await access.queryBy(..., {fdRemovedAt: not(null), fdType: not(1)});
+///    await access.queryBy(..., {"removedAt": notNull, "type": not(1)});
 /// ```
-Not<T> not<T>(T value) => Not<T>(value);
+///
+/// > See also [inList] and [notNull]
+NotCondition<T> not<T>(T value) => NotCondition<T>(value);
 
 /// Used in the `whereValues` to represent a not-null condition.
-const notNull = const Not(null);
+const notNull = const NotCondition(null);
 
-/// Used in the `whereValues` to indicate a negative condition.
+/// Used in the `whereValues` of [DBAccess.loadBy], [DBAccess.queryBy],
+/// and [sqlWhereBy] to indicate an IN clause.
+/// That is, it shall be generated with `field in (value1, value2)`
+/// 
+/// Example,
+/// ```
+///    await access.queryBy(..., {"users": inList(['john', 'mary'])});
+/// ```
+///
+/// > See also [not] and [notIn].
+InCondition inList(Iterable? value) => InCondition(value);
+/// Used in the `whereValues` of [DBAccess.loadBy], [DBAccess.queryBy],
+/// and [sqlWhereBy] to indicate an IN clause.
+///
+/// > See also [inList] and [not].
+NotCondition<InCondition> notIn(Iterable? value)
+=> NotCondition(InCondition(value));
+
+/// Used in the `whereValues` of [DBAccess.loadBy], [DBAccess.queryBy],
+/// and [sqlWhereBy] to indicate a negative condition.
 /// 
 /// In most cases, you shall use [not] instead for its simplicity.
 /// 
@@ -62,9 +83,16 @@ const notNull = const Not(null);
 ///   "key": const Not("abc"),
 /// }
 /// ```
-class Not<T> {
+class NotCondition<T> {
   final T value;
-  const Not(T this.value);
+  const NotCondition(T this.value);
+}
+
+/// Used in the `whereValues` of [DBAccess.loadBy], [DBAccess.queryBy],
+/// and [sqlWhereBy] to indicate an IN clause.
+class InCondition {
+  final Iterable? value;
+  InCondition(this.value);
 }
 
 ///Whether it is [PostgresqlException] about the violation of the given [code].
@@ -458,56 +486,58 @@ class DBAccess extends PostgresqlAccess {
   Future<Row?> queryAny(String sql, [values])
   => StreamUtil.first(query(_limit1NS(sql), values));
 
-  /** Queries [fields] of [otype] for the criteria specified in
-   * [whereValues] (AND-ed together).
-   * 
-   * * [option] - whether to use [forUpdate], [forShare] or null.
-   */
-  Stream<Row> queryBy(Iterable<String>? fields, String otype,
+  /// Queries [fields] from [fromClause] for the criteria specified in
+  /// [whereValues] (AND-ed together).
+  /// 
+  /// * [fromClause] - any valid from clause, such as a table name,
+  /// an inner join, and so on.
+  /// Note: it shall not include `from`.
+  /// Example: `Foo`, `"Foo" inner join "Moo" on ref=oid`,
+  /// and `"Foo" F`.
+  /// * [option] - whether to use [forUpdate], [forShare] or null.
+  Stream<Row> queryBy(Iterable<String>? fields, String fromClause,
     Map<String, dynamic> whereValues, [AccessOption? option])
-  => _queryBy(fields, otype, whereValues, option, null);
+  => _queryBy(fields, fromClause, whereValues, option, null);
 
-  Stream<Row> _queryBy(Iterable<String>? fields, String otype,
+  Stream<Row> _queryBy(Iterable<String>? fields, String fromClause,
     Map<String, dynamic> whereValues, AccessOption? option, String? append)
-  => queryWith(fields, otype,
-      sqlWhereBy(whereValues, append), whereValues, null, null, option);
+  => queryFrom(fields, fromClause, sqlWhereBy(whereValues, append),
+      whereValues, null, option);
 
-  /** Queries [fields] of [otype] for the criteria specified in
-   * [whereValues] (AND-ed together), or null if not found.
-   */
-  Future<Row?> queryAnyBy(Iterable<String>? fields, String otype,
+  /// Queries [fields] of [fromClause] for the criteria specified in
+  /// [whereValues] (AND-ed together), or null if not found.
+  Future<Row?> queryAnyBy(Iterable<String>? fields, String fromClause,
       Map<String, dynamic> whereValues, [AccessOption? option])
-  => StreamUtil.first(_queryBy(fields, otype, whereValues, option, "limit 1"));
+  => StreamUtil.first(_queryBy(fields, fromClause, whereValues, option, "limit 1"));
 
-  /** Queries [fields] of [otype] for the criteria specified in
-   * [whereClause] and [whereValues].
-   * 
-   * > If you'd like *select-for-update*, you can specify [forUpdate]
-   * or [forShare] to [option].
-   * 
-   * * [whereClause] - if null, no where clause is generated.
-   * That is, the whole table will be loaded.
-   * Note: it shall not include `where`.
-   * Example: `"$fdType"=23`
-   * * [fromClause] - if null, the entity's table is assumed.
-   * Note: it shall not include `from`.
-   * Example: `"$otTask" inner join "$otGrant"`
-   * * [shortcut] - the table shortcut to prefix the column names.
-   * Default: none. Useful if you joined other tables in [fromClause].
-   * Note: [shortcut] is case insensitive.
-   * 
-   * Note: if [fromClause] is specified, [otype] is ignored.
-   */
-  Stream<Row> queryWith(Iterable<String>? fields, String otype,
+  /// Queries [fields] from [fromClause] for the criteria specified in
+  /// [whereClause] and [whereValues].
+  /// 
+  /// > If you'd like *select-for-update*, you can specify [forUpdate]
+  /// or [forShare] to [option].
+  /// 
+  /// * [fromClause] - any valid from clause, such as a table name,
+  /// an inner join, and so on.
+  /// Note: it shall not include `from`.
+  /// Example: `Foo`, `"Foo" inner join "Moo" on ref=oid`,
+  /// and `"Foo" F`.
+  /// * [whereClause] - if null, no where clause is generated.
+  /// That is, the whole table will be loaded.
+  /// Note: it shall not include `where`.
+  /// Example: `"$fdType"=23`
+  /// * [shortcut] - the table shortcut to prefix the column names.
+  /// Default: none. Useful if you joined other tables in [fromClause].
+  /// Note: [shortcut] is case insensitive.
+  Stream<Row> queryFrom(Iterable<String>? fields, String fromClause,
       String? whereClause, [Map<String, dynamic>? whereValues,
-      String? fromClause, String? shortcut, AccessOption? option]) {
+      String? shortcut, AccessOption? option]) {
     final sql = StringBuffer('select ');
     addSqlColumns(sql, fields, shortcut);
-    sql.write(' from');
+    sql.write(' from ');
 
-    if (fromClause != null) sql..write(' ')..write(fromClause);
+    if (_reComplexFrom.hasMatch(fromClause)) sql.write(fromClause);
     else {
-      sql..write(' "')..write(otype)..write('"');
+      sql..write('"')..write(fromClause)..write('"');
       if (shortcut != null) sql..write(' ')..write(shortcut);
     }
 
@@ -521,27 +551,42 @@ class DBAccess extends PostgresqlAccess {
     else if (option == forShare) sql.write(' for share');
     return query(sql.toString(), whereValues);
   }
-  static final _reNoWhere = RegExp(r'^\s*(?:order|group|limit|for)', caseSensitive: false);
+  @deprecated
+  Stream<Row> queryWith(Iterable<String>? fields, String otype,
+      String? whereClause, [Map<String, dynamic>? whereValues,
+      String? fromClause, String? shortcut, AccessOption? option])
+  => queryFrom(fields, fromClause ?? otype, whereClause,
+      whereValues, shortcut, option);
+  static final
+    _reNoWhere = RegExp(r'^\s*(?:order|group|limit|for)', caseSensitive: false),
+    _reComplexFrom = RegExp(r'["\s]');
 
-  /** Returns the first result, or null if not found.
-   * 
-   * * [whereClause] - if null, no where clause is generated.
-   * That is, the whole table will be loaded.
-   * Note: it shall not include `where`.
-   * Example: `"$fdType" = 23`
-   * * [fromClause] - if null, the entity's table is assumed.
-   * Note: it shall not include `from`.
-   * Example: `"$otTask" inner join "$otGrant"`
-   * * [shortcut] - the table shortcut to prefix the column names.
-   * Default: none. Useful if you joined other tables in [fromClause].
-   * Note: [shortcut] is case insensitive.
-   */
+  /// Returns the first result, or null if not found.
+  /// 
+  /// * [fromClause] - any valid from clause, such as a table name,
+  /// an inner join, and so on.
+  /// Note: it shall not include `from`.
+  /// Example: `Foo`, `"Foo" inner join "Moo" on ref=oid`,
+  /// and `"Foo" F`.
+  /// * [whereClause] - if null, no where clause is generated.
+  /// That is, the whole table will be loaded.
+  /// Note: it shall not include `where`.
+  /// Example: `"$fdType" = 23`
+  /// * [shortcut] - the table shortcut to prefix the column names.
+  /// Default: none. Useful if you joined other tables in [fromClause].
+  /// Note: [shortcut] is case insensitive.
+  Future<Row?> queryAnyFrom(Iterable<String>? fields, String fromClause,
+      String? whereClause, [Map<String, dynamic>? whereValues,
+      String? shortcut, AccessOption? option])
+  => StreamUtil.first(queryFrom(fields, fromClause,
+      _limit1(whereClause), whereValues, shortcut, option));
+  @deprecated
   Future<Row?> queryAnyWith(Iterable<String>? fields, String otype,
       String? whereClause, [Map<String, dynamic>? whereValues,
       String? fromClause, String? shortcut, AccessOption? option])
-  => StreamUtil.first(queryWith(fields, otype,
-      _limit1(whereClause), whereValues,
-      fromClause, shortcut, option));
+  => queryAnyFrom(fields, fromClause ?? otype, whereClause,
+      whereValues, shortcut, option);
+
   ///Loads the entity by the given [oid], or null if not found.
   Future<T?> load<T extends Entity>(
       Iterable<String>? fields, T newInstance(String oid), String? oid,
@@ -573,8 +618,8 @@ class DBAccess extends PostgresqlAccess {
 
     final entities = <T>[];
     await for (final row in
-        queryWith(fds, fromClause ?? newInstance('*').otype,
-        whereClause, whereValues, fromClause, shortcut, option)) {
+        queryFrom(fds, fromClause ?? newInstance('*').otype,
+        whereClause, whereValues, shortcut, option)) {
       entities.add(toEntityNS(row, fields, newInstance));
     }
     return entities;
@@ -595,30 +640,30 @@ class DBAccess extends PostgresqlAccess {
     return bind_(this, data.remove(fdOid) as String, newInstance, data, fields);
   }
 
-  /** Loads entities while [test] returns true.
-   * It stops loading if all entities are loaded or [test] returns false.
-   * 
-   * Note: the last entity passed to [test] will be in the returned list
-   * unless you remove it in [test]. (that is, `do ... while(test())`)
-   * 
-   * * [test] - it is called to test if the loading shall continue (true).
-   * When [test] is called, `lastLoaded` is the entity to test, and `loaded`
-   * is a list of all loaded entities, *including* `lastLoaded`
-   * (at the end of `loaded`).
-   * Though rare, you can modify `loaded` in [test], such as removing
-   * `lastLoaded` from `loaded`.
-   * 
-   * * [whereClause] - if null, no where clause is generated.
-   * That is, the whole table will be loaded.
-   * Note: it shall not include `where`.
-   * Example: `"$fdType" = 23`
-   * * [fromClause] - if null, the entity's table is assumed.
-   * Note: it shall not include `from`.
-   * Example: `"$otTask" inner join "$otGrant"`
-   * * [shortcut] - the table shortcut to prefix the column names.
-   * Default: none. Useful if you joined other tables in [fromClause].
-   * Note: [shortcut] is case insensitive.
-   */
+  /// Loads entities while [test] returns true.
+  /// It stops loading if all entities are loaded or [test] returns false.
+  /// 
+  /// Note: the last entity passed to [test] will be in the returned list
+  /// unless you remove it in [test]. (that is, `do ... while(test())`)
+  /// 
+  /// * [test] - it is called to test if the loading shall continue (true).
+  /// When [test] is called, `lastLoaded` is the entity to test, and `loaded`
+  /// is a list of all loaded entities, *including* `lastLoaded`
+  /// (at the end of `loaded`).
+  /// Though rare, you can modify `loaded` in [test], such as removing
+  /// `lastLoaded` from `loaded`.
+  /// 
+  /// * [whereClause] - if null, no where clause is generated.
+  /// That is, the whole table will be loaded.
+  /// Note: it shall not include `where`.
+  /// Example: `"$fdType" = 23`
+  /// * [fromClause] - if null, the entity's table is assumed.
+  /// Note: it shall not include `from`.
+  /// Example: `"$otTask" inner join "$otGrant"`
+  /// * [shortcut] - the table shortcut to prefix the column names.
+  /// Default: none. Useful if you joined other tables in [fromClause].
+  /// Note: [shortcut] is case insensitive.
+  @deprecated
   Future<List<T>> loadWhile<T extends Entity>(
       Iterable<String>? fields, T newInstance(String oid),
       bool test(T lastLoaded, List<T> loaded),
@@ -627,10 +672,10 @@ class DBAccess extends PostgresqlAccess {
 
     final loaded = <T>[];
 
-    await for (final row in queryWith(
+    await for (final row in queryFrom(
         fields != null ? (LinkedHashSet.from(fields)..add(fdOid)): null,
         fromClause ?? newInstance('*').otype,
-        whereClause, whereValues, fromClause, shortcut, option)) {
+        whereClause, whereValues, shortcut, option)) {
 
       final e = toEntityNS(row, fields, newInstance);
       loaded.add(e); //always add (i.e., add before test)
@@ -663,9 +708,9 @@ class DBAccess extends PostgresqlAccess {
       fds..add(fdOid)..addAll(fields);
     }
 
-    final row = await StreamUtil.first(queryWith(fds,
+    final row = await StreamUtil.first(queryFrom(fds,
         fromClause ?? newInstance('*').otype,
-        _limit1(whereClause), whereValues, fromClause, shortcut, option));
+        _limit1(whereClause), whereValues, shortcut, option));
       return toEntity(row, fields, newInstance);
   }
 
@@ -701,23 +746,28 @@ class DBAccess extends PostgresqlAccess {
   }
 
   /// Tests if the given [oid] exists.
-  Future<bool> exists(String otype, String oid) async
-  => null != await queryAny(
-      'select 1 from "$otype" where "$fdOid"=@$fdOid limit 1', {fdOid: oid});
+  ///
+  /// * [fromClause] - any valid from clause, such as a table name,
+  /// an inner join, and so on.
+  /// Note: it shall not include `from`.
+  /// Example: `Foo`, `"Foo" inner join "Moo" on ref=oid`,
+  /// and `"Foo" F`.
+  Future<bool> exists(String fromClause, String oid) async
+  => null != await queryAnyBy(const [], fromClause, {fdOid: oid});
 
-  /** Inserts the entity specified in data.
-   * Note: all fields found in [data] are written. You have to
-   * remove unnecessary files by yourself, such as [fdOtype].
-   * 
-   * * [types] - a map of (field-name, field-type). If specified,
-   * the type of the field will be retrieved from [types], if any.
-   * * [append] - the extra clause to append to the insert statement.
-   * Example, `final oid = await insert(..., append: returning "$fdOid");`
-   */
+  /// Inserts the entity specified in data.
+  /// Note: all fields found in [data] are written. You have to
+  /// remove unnecessary files by yourself, such as [fdOtype].
+  /// 
+  /// * [types] - a map of (field-name, field-type). If specified,
+  /// the type of the field will be retrieved from [types], if any.
+  /// * [append] - the extra clause to append to the insert statement.
+  /// Example, `final oid = await insert(..., append: returning "$fdOid");`
   Future<dynamic> insert(String otype, Map<String, dynamic> data,
       {Map<String, String>? types, String? append}) {
     final sql = StringBuffer('insert into "')..write(otype)..write('"('),
-      values = StringBuffer(" values(");
+      values = StringBuffer(" values("),
+      cvter = _pool!.typeConverter;
 
     bool first = true;
     data.forEach((fd, val) {
@@ -727,7 +777,7 @@ class DBAccess extends PostgresqlAccess {
         values.write(',');
       }
       sql..write('"')..write(fd)..write('"');
-      values.write(_pool!.typeConverter.encode(val, types?[fd]));
+      values.write(cvter.encode(val, types?[fd]));
     });
 
     sql.write(')');
@@ -825,39 +875,59 @@ void addSqlColumns(StringBuffer sql, Iterable<String>? fields, [String? shortcut
 }
 final _reExpr = RegExp(r'(?:^[0-9]|[("+])');
 
-/** Returns the where criteria (without where) by anding [whereValues].
- * 
- * Note: if a value in [whereValues] is null, it will generate
- * `foo is null`. If a value is [not], it will generate `!=`.
- * Example, `"foo": not(null)` => `foo is not null`.
- * `"foo": not(123)` => `foo != 123`.
- */
+/// Returns the where criteria (without where) by anding [whereValues].
+/// 
+/// Note: if a value in [whereValues] is null, it will generate
+/// `foo is null`. If a value is [not], it will generate `!=`.
+/// Example, `"foo": not(null)` => `foo is not null`.
+/// `"foo": not(123)` => `foo != 123`.
 String sqlWhereBy(Map<String, dynamic> whereValues, [String? append]) {
-  final where = StringBuffer();
-  bool first = true;
+  final cvter = _pool!.typeConverter,
+    sql = StringBuffer();
+  var first = true;
   whereValues.forEach((name, value) {
     if (first) first = false;
-    else where.write(' and ');
-
-    where..write('"')..write(name);
+    else sql.write(' and ');
 
     bool negate;
-    if (negate = value is Not) value = value.value;
+    if (negate = value is NotCondition) value = value.value;
+
+    if (value is InCondition) {
+      value = value.value;
+      if (value == null || value.isEmpty) {
+        sql.write(negate ? 'true': 'false');
+        return;
+      }
+
+      sql..write('"')..write(name)..write('"');
+      if (negate) sql.write(' not');
+      sql.write(' in (');
+
+      var first = true;
+      for (final item in value) {
+        if (first) first = false;
+        else sql.write(',');
+        sql.write(cvter.encode(item, null));
+      }
+      sql.write(')');
+      return;
+    }
+
+    sql..write('"')..write(name);
 
     if (value != null) {
-      where.write('"');
-      if (negate) where.write('!');
-      where..write('=')..write(_pool!.typeConverter.encode(value, null));
+      sql.write('"');
+      if (negate) sql.write('!');
+      sql..write('=')..write(cvter.encode(value, null));
     } else {
-      where.write('" is ');
-      if (negate) where.write("not ");
-      where.write('null');
+      sql.write('" is ');
+      if (negate) sql.write("not ");
+      sql.write('null');
     }
   });
 
-  if (append != null)
-    where..write(' ')..write(append);
-  return where.toString();
+  if (append != null) sql..write(' ')..write(append);
+  return sql.toString();
 }
 
 /// A callback, if specified, is called before starting an access

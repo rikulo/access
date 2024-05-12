@@ -1,5 +1,13 @@
 # Changes
 
+**3.5.0**
+
+* `queryWith` deprecated and replaced with `queryFrom`
+* `queryAnyWith` deprecated and replaced with `queryAnyFrom`
+* `inList` and `notIn` added for generating the IN clause with `queryBy` and `queryAnyBy`
+* `loadWhile` deprecated. Please use `await` instead.
+* `Not` renamed to `NotCondition`
+
 **3.1.1**
 
 * `addSqlColumns` added.
