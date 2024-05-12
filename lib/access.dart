@@ -494,6 +494,9 @@ class DBAccess extends PostgresqlAccess {
   /// Note: it shall not include `from`.
   /// Example: `Foo`, `"Foo" inner join "Moo" on ref=oid`,
   /// and `"Foo" F`.
+  /// * [whereValues] - the values in this map will be encoded
+  /// as an SQL condition by [sqlWhereBy].
+  /// See [sqlWhereBy] for details.
   /// * [option] - whether to use [forUpdate], [forShare] or null.
   Stream<Row> queryBy(Iterable<String>? fields, String fromClause,
     Map<String, dynamic> whereValues, [AccessOption? option])
@@ -505,7 +508,10 @@ class DBAccess extends PostgresqlAccess {
       whereValues, null, option);
 
   /// Queries [fields] of [fromClause] for the criteria specified in
-  /// [whereValues] (AND-ed together), or null if not found.
+  /// [whereValues] (AND-ed together),
+  /// and returns only the first row, or null if nothing found.
+  ///
+  /// > Refer to [queryBy] for details.
   Future<Row?> queryAnyBy(Iterable<String>? fields, String fromClause,
       Map<String, dynamic> whereValues, [AccessOption? option])
   => StreamUtil.first(_queryBy(fields, fromClause, whereValues, option, "limit 1"));
@@ -813,29 +819,29 @@ List firstColumns(Iterable<Row> rows) {
   return result;
 }
 
-/** Converts a list of [fields] to a SQL fragment separated by comma.
- * 
- * Note: if [fields] is null, `"*"` is returned, i.e., all fields are assumed.
- * if [fields] is empty, `1` is returned (so it is easier to construct 
- * a SQL statement).
- * 
- * Note: if a field starts with '(', or a number, we don't encode it
- * with a double quotation. It is used to retrieve a constant, an expression,
- * or anything you prefer not to encode.
- * 
- * For example, you can pass a field as
- * `("assignee" is not null or "due" is null)`.
- * Furthermore, you can name it (aka., virtual column or calculated column):
- *  `("assignee" is not null or "due" is null) alive`
- * 
- * Here is an example of use:
- * 
- *     access.query('select ${sqlColumns(fields)} from "Foo"');
- * 
- * * [shortcut] - the table shortcut to prefix the field (column name).
- * If specified, the result will be `T."field1",T."field2"` if [shortcut] is `T`.
- * Note: [shortcut] is case insensitive.
- */
+/// Converts a list of [fields] to a SQL fragment separated by comma.
+/// 
+/// Note: if [fields] is null, `"*"` is returned, i.e., all fields are assumed.
+/// if [fields] is empty, `1` is returned (so it is easier to construct 
+/// a SQL statement).
+/// 
+/// Each field will be enclosed with a pair of double quotations, such as
+/// `foo` => `"foo"`.
+/// However, if it starts with a number or contains `(` or `"`,
+/// it'll be output directly. In other words, it is considered as an expression.
+/// 
+/// For example, you can pass a field as
+/// `("assignee" is not null or "due" is null)`.
+/// Furthermore, you can name it with an alias:
+///  `("assignee" is not null or "due" is null) alive`
+/// 
+/// Here is another example:
+/// 
+///     access.query('select ${sqlColumns(fields)} from "Foo"');
+/// 
+/// * [shortcut] - the table shortcut to prefix the field (column name).
+/// If specified, the result will be `T."field1",T."field2"` if [shortcut] is `T`.
+/// Note: [shortcut] is case insensitive.
 String sqlColumns(Iterable<String>? fields, [String? shortcut]) {
   if (fields == null) return "*";
   if (fields.isEmpty) return '1';
@@ -848,6 +854,8 @@ String sqlColumns(Iterable<String>? fields, [String? shortcut]) {
 /// Adds a list of [fields] into [sql] by separating them with comma
 /// See also [sqlColumns].
 void addSqlColumns(StringBuffer sql, Iterable<String>? fields, [String? shortcut]) {
+  assert(shortcut == null || !shortcut.contains(' '));
+
   if (fields == null) {
     sql.write("*");
     return;
@@ -863,29 +871,59 @@ void addSqlColumns(StringBuffer sql, Iterable<String>? fields, [String? shortcut
   for (final field in fields) {
     if (first) first = false;
     else sql.write(',');
+    _appendField(sql, field, shortcut);
+  }
+}
 
-    if (_reExpr.hasMatch(field)) {
-      sql.write(field);
-    } else {
-      if (shortcut != null)
-        sql..write(shortcut)..write('.');
-      sql..write('"')..write(field)..write('"');
-    }
+void _appendField(StringBuffer sql, String field, [String? shortcut]) {
+  if (_reExpr.hasMatch(field)) {
+    sql.write(field);
+  } else {
+    if (shortcut != null)
+      sql..write(shortcut)..write('.');
+    sql..write('"')..write(field)..write('"');
   }
 }
 final _reExpr = RegExp(r'(?:^[0-9]|[("+])');
 
-/// Returns the where criteria (without where) by anding [whereValues].
+/// Returns the where criteria (without where) by concatenating all values
+/// found in [whereValues] with *and*.
 /// 
-/// Note: if a value in [whereValues] is null, it will generate
-/// `foo is null`. If a value is [not], it will generate `!=`.
-/// Example, `"foo": not(null)` => `foo is not null`.
-/// `"foo": not(123)` => `foo != 123`.
+/// Each key will be enclosed with a pair of double quotations, such as
+/// `foo` => `"foo"`.
+/// However, if it starts with a number or contains `(` or `"`,
+/// it'll be output directly. In other words, it is considered as an expression.
+/// 
+/// If a value in [whereValues] is null, it will generate
+/// `"name" is null`.
+/// Furthermore, you can use [inList], [notIn], and [notNull]
+/// to generate more sophisticated conditions. For example,
+///
+///     {
+///       "foo": inList(['a', 'b']),
+///       "moo": notIn([1, 5]),
+///       "boo": notNull,
+///       "qoo": null,
+///     }
+/// 
+/// Furthermore, you can put the order-by and limit clause in the key
+/// with empty value. For example,
+///
+///     {
+///       "foo": foo,
+///       "": 'order by value desc limt 5',
+///     }
 String sqlWhereBy(Map<String, dynamic> whereValues, [String? append]) {
   final cvter = _pool!.typeConverter,
     sql = StringBuffer();
   var first = true;
   whereValues.forEach((name, value) {
+    if (name.isEmpty) { //value is a SQL fragment to append
+      assert(value is String);
+      append = append == null ? value.toString(): '$value $append';
+      return;
+    }
+
     if (first) first = false;
     else sql.write(' and ');
 
@@ -899,7 +937,7 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [String? append]) {
         return;
       }
 
-      sql..write('"')..write(name)..write('"');
+      _appendField(sql, name);
       if (negate) sql.write(' not');
       sql.write(' in (');
 
@@ -913,14 +951,12 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [String? append]) {
       return;
     }
 
-    sql..write('"')..write(name);
-
+    _appendField(sql, name);
     if (value != null) {
-      sql.write('"');
       if (negate) sql.write('!');
       sql..write('=')..write(cvter.encode(value, null));
     } else {
-      sql.write('" is ');
+      sql.write(' is ');
       if (negate) sql.write("not ");
       sql.write('null');
     }

@@ -1,5 +1,9 @@
 # Changes
 
+**3.5.1**
+
+* `sqlWhereBy` supports an empty key for appending `order by` or `group by` at the end.
+
 **3.5.0**
 
 * `queryWith` deprecated and replaced with `queryFrom`

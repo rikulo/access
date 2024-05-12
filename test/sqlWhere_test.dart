@@ -11,16 +11,24 @@ void main() {
   //for testing purpose, we have to configure it to prepare the type converter
   configure(Pool('dummy'));
 
-  test("sqlWhereBy", () {
+  test("sqlWhereBy null, notNull", () {
     expect(sqlWhereBy({
       "a": null,
       "b": not(null),
       "c": 12,
       "d": not("abc"),
       "e": notNull,
+      'f': not(12),
       }), '''
-"a" is null and "b" is not null and "c"=12 and "d"!= E'abc'  and "e" is not null''');
+"a" is null and "b" is not null and "c"=12 and "d"!= E'abc'  and "e" is not null and "f"!=12''');
 
+    expect(sqlWhereBy({
+      "foo": 5,
+      "mini + 5": 8,
+    }), '"foo"=5 and mini + 5=8');
+  });
+
+  test("sqlWhereBy inList, notIn", () {
     expect(sqlWhereBy({
       'foo': inList([1, 2, 3]),
       'f2': notIn([5, 6]),
@@ -28,5 +36,16 @@ void main() {
       'f4': notIn([]),
       }), '''
 "foo" in (1,2,3) and "f2" not in (5,6) and false and true''');
+  });
+
+  test("sqlWhereBy order", () {
+    expect(sqlWhereBy({
+      "foo": 5,
+      "": 'order by t',
+    }), '"foo"=5 order by t');
+
+    expect(sqlWhereBy({
+      "": 'order by t',
+    }), ' order by t');
   });
 }
