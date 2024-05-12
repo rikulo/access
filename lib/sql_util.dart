@@ -7,25 +7,34 @@ import "package:charcode/ascii.dart";
 import "package:postgresql2/postgresql.dart";
 import "package:rikulo_commons/util.dart";
 
-/// Encodes [text] so it can be used with '%' and '_' in a LIKE clause.
-/// Note: any special characters including '%' and '_' will be encoded,
-/// so you shall put them after calling this method.
+/// Encodes [text] to escape special characters, so it can be *normal* text
+/// when using as part of the LIKE clause.
 /// 
-/// Example, `"where abc like E'${DBUtil.encodeLike(pattern)}%' escape '!'"`.
+/// By *normal* we mean the text matches *exactly* character-by-character.
+/// Any special characters in [text], such as '%' and '_', will be encoded,
+/// so `%` matches `%`, no longer wildcard.
 /// 
-/// Note:
-/// 1. you have to put `E` before the string
-/// 2. you have to put `escape '!'` after the string
-String encodeLike(String text) => _encLikeStr.apply(text);
+/// NOTE: the escape character is `!`, so you must append
+/// `escape '!'` at the end. For example,
+/// 
+///     "where abc like E'${encodeTextInLike(input)}%' escape '!'"
+///
+/// >Useful for mixing user's input with the LIKE patterns.
+String encodeTextInLike(String text) => _encLikeStr.apply(text);
 const _encLikeMap = const {...escapes,
     '%': r'!%', '_': r'!_', '!': '!!'};
 final _encLikeStr = ReplaceAll(_encLikeMap);
     //Implementation Note: we CANNOT use `escape '\'` since E'' is used
 
-/// Encodes [text] so it can be used in `~` or `~*` statement.
+/// Encodes [text] to escape special characters, so it can be *normal* text
+/// when using as part of the regular-expression clause (`~` and `~*).
 /// 
-/// Example: `"name" ~* E'${DBUtil.encodeRegexp(text)}'
-String encodeRegex(String text)
+/// By *normal* we mean the text matches *exactly* character-by-character.
+/// Any special characters in [text], such as '.' and '*', will be encoded,
+/// so `.` matches `.`, no longer wildcard.
+/// 
+/// Example: `"name" ~* E'[A-Z]+${encodeRegexp(input)}'
+String encodeTextInRegex(String text)
 => text.replaceAllMapped(_reRegex, _encRegex);
 String _encRegex(Match m) {
   final cc = m[0]!,

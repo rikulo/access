@@ -61,12 +61,14 @@ NotCondition<InCondition> notIn(Iterable? value)
 ///
 ///     await access.queryBy(..., {"name": like('a%z')});
 ///
-/// * [escape] the escape character. Specify it if a portion of [pattern]
-/// has been encoded with [encodeLike]. For example,
+/// * [escape] the escape character. Specify it as `'!'` if
+/// a portion of [pattern] has been encoded with [encodeTextInLike].
+/// For example,
 /// 
-///     await access.queryBy(..., {"name": like('${encodeLike(text)}%'), '!'})
+///     await access.queryBy(...,
+///       {"name": like('${encodeTextInLike(text)}%'), '!')})
 /// 
-/// will generate (assume text is 'a%b')
+/// Assume text is 'a%b', then it generates
 /// 
 ///     ...like 'a!%b%' escape '!'
 /// 

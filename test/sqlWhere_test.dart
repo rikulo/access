@@ -52,7 +52,7 @@ void main() {
     }), '"foo" like  E\'ab%yz\'  and "moo" not like  E\'1_9\' ');
 
     expect(sqlWhereBy({
-      "foo": like('${encodeLike('ab%yz')}%', '!'),
+      "foo": like('${encodeTextInLike('ab%yz')}%', '!'),
     }), '"foo" like  E\'ab!%yz%\'  escape \'!\'');
   });
 

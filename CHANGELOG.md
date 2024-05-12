@@ -3,7 +3,7 @@
 **3.6.0**
 
 * `like` and `notLike` added for generating the LIKE clause for `queryBy` and `queryAnyBy`
-* `encodeLike` and `encodeRegex` added.
+* `encodeTextInLike` and `encodeTextInRegex` added.
 * `sqlWhereBy` supports an empty key for appending `order by` or `group by` at the end.
 
 **3.5.0**
