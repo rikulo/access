@@ -4,8 +4,10 @@
 library sqlColumns_test;
 
 import 'package:test/test.dart';
-import 'package:access/access.dart';
 import 'package:postgresql2/pool.dart';
+
+import 'package:access/access.dart';
+import 'package:access/sql_util.dart';
 
 void main() {
   //for testing purpose, we have to configure it to prepare the type converter
@@ -41,6 +43,17 @@ void main() {
       'ref': inList(['a', 'b']),
       '(right & 5)': not(0),
     }), '"ref" in ( E\'a\' , E\'b\' ) and (right & 5)!=0');
+  });
+
+  test("sqlWhereBy like", () {
+    expect(sqlWhereBy({
+      "foo": like('ab%yz'),
+      "moo": notLike('1_9'),
+    }), '"foo" like  E\'ab%yz\'  and "moo" not like  E\'1_9\' ');
+
+    expect(sqlWhereBy({
+      "foo": like('${encodeLike('ab%yz')}%', '!'),
+    }), '"foo" like  E\'ab!%yz%\'  escape \'!\'');
   });
 
   test("sqlWhereBy order", () {

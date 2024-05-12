@@ -2,6 +2,7 @@
 
 **3.6.0**
 
+* `like` and `notLike` added for generating the LIKE clause for `queryBy` and `queryAnyBy`
 * `encodeLike` and `encodeRegex` added.
 * `sqlWhereBy` supports an empty key for appending `order by` or `group by` at the end.
 
@@ -9,7 +10,7 @@
 
 * `queryWith` deprecated and replaced with `queryFrom`
 * `queryAnyWith` deprecated and replaced with `queryAnyFrom`
-* `inList` and `notIn` added for generating the IN clause with `queryBy` and `queryAnyBy`
+* `inList` and `notIn` added for generating the IN clause for `queryBy` and `queryAnyBy`
 * `loadWhile` deprecated. Please use `await` instead.
 * `Not` renamed to `NotCondition`
 

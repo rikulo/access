@@ -27,9 +27,8 @@ const String
 /// so-called negative condition.
 /// 
 /// Example,
-/// ```
-///    await access.queryBy(..., {"removedAt": notNull, "type": not(1)});
-/// ```
+/// 
+///     await access.queryBy(..., {"removedAt": notNull, "type": not(1)});
 ///
 /// > See also [inList] and [notNull]
 NotCondition<T> not<T>(T value) => NotCondition<T>(value);
@@ -42,18 +41,44 @@ const notNull = const NotCondition(null);
 /// That is, it shall be generated with `field in (value1, value2)`
 /// 
 /// Example,
-/// ```
-///    await access.queryBy(..., {"users": inList(['john', 'mary'])});
-/// ```
+///
+///     await access.queryBy(..., {"users": inList(['john', 'mary'])});
 ///
 /// > See also [not] and [notIn].
 InCondition inList(Iterable? value) => InCondition(value);
 /// Used in the `whereValues` of [DBAccess.loadBy], [DBAccess.queryBy],
-/// and [sqlWhereBy] to indicate an IN clause.
+/// and [sqlWhereBy] to indicate a NOT IN clause.
 ///
 /// > See also [inList] and [not].
 NotCondition<InCondition> notIn(Iterable? value)
 => NotCondition(InCondition(value));
+
+/// Used in the `whereValues` of [DBAccess.loadBy], [DBAccess.queryBy],
+/// and [sqlWhereBy] to indicate a LIKE clause.
+/// That is, it shall be generated with `field in (value1, value2)`
+/// 
+/// Example,
+///
+///     await access.queryBy(..., {"name": like('a%z')});
+///
+/// * [escape] the escape character. Specify it if a portion of [pattern]
+/// has been encoded with [encodeLike]. For example,
+/// 
+///     await access.queryBy(..., {"name": like('${encodeLike(text)}%'), '!'})
+/// 
+/// will generate (assume text is 'a%b')
+/// 
+///     ...like 'a!%b%' escape '!'
+/// 
+/// > See also [not] and [notIn].
+LikeCondition like(String pattern, [String? escape])
+=> LikeCondition(pattern, escape);
+/// Used in the `whereValues` of [DBAccess.loadBy], [DBAccess.queryBy],
+/// and [sqlWhereBy] to indicate a NOT Like clause.
+///
+/// > See also [like], [inList] and [not].
+NotCondition<LikeCondition> notLike(String pattern, [String? escape])
+=> NotCondition(LikeCondition(pattern, escape));
 
 /// Used in the `whereValues` of [DBAccess.loadBy], [DBAccess.queryBy],
 /// and [sqlWhereBy] to indicate a negative condition.
@@ -61,12 +86,11 @@ NotCondition<InCondition> notIn(Iterable? value)
 /// In most cases, you shall use [not] instead for its simplicity.
 /// 
 /// Use [Not] only for constructing a constant conditions:
-/// ```
-/// const {
-///   "foo": const Not(null),
-///   "key": const Not("abc"),
-/// }
-/// ```
+///
+///     const {
+///       "foo": const Not(null),
+///       "key": const Not("abc"),
+///     }
 class NotCondition<T> {
   final T value;
   const NotCondition(T this.value);
@@ -83,7 +107,8 @@ class InCondition {
 /// and [sqlWhereBy] to indicate a Like clause.
 class LikeCondition {
   final String pattern;
-  LikeCondition(this.pattern);
+  final String? escape;
+  LikeCondition(this.pattern, [this.escape]);
 }
 
 ///Whether it is [PostgresqlException] about the violation of the given [code].
@@ -240,9 +265,18 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [String? append]) {
     }
 
     _appendField(sql, name);
-    if (value != null) {
+    if (value is LikeCondition) {
+      if (negate) sql.write(' not');
+      sql..write(' like ')..write(cvter.encode(value.pattern, null));
+
+      final escape = value.escape;
+      if (escape != null)
+        sql..write(' escape \'')..write(escape)..write("'");
+
+    } else if (value != null) {
       if (negate) sql.write('!');
       sql..write('=')..write(cvter.encode(value, null));
+
     } else {
       sql.write(' is ');
       if (negate) sql.write("not ");
