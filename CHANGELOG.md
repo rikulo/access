@@ -1,7 +1,8 @@
 # Changes
 
-**3.5.1**
+**3.6.0**
 
+* `encodeLike` and `encodeRegex` added.
 * `sqlWhereBy` supports an empty key for appending `order by` or `group by` at the end.
 
 **3.5.0**

@@ -34,8 +34,13 @@ void main() {
       'f2': notIn([5, 6]),
       'f3': inList([]),
       'f4': notIn([]),
-      }), '''
+    }), '''
 "foo" in (1,2,3) and "f2" not in (5,6) and false and true''');
+
+    expect(sqlWhereBy({
+      'ref': inList(['a', 'b']),
+      '(right & 5)': not(0),
+    }), '"ref" in ( E\'a\' , E\'b\' ) and (right & 5)!=0');
   });
 
   test("sqlWhereBy order", () {
