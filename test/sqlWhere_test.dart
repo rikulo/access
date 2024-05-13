@@ -56,8 +56,9 @@ void main() {
     }), '"foo" like E\'ab!%yz%\' escape \'!\'');
 
     expect(sqlWhereBy({
-      "foo": like('${encodeTextInLike('a\'b%yz')}%', '!'),
-    }), '"foo" like E\'a\\\'b!%yz%\' escape \'!\'');
+      "foo": like('${encodeTextInLike('a\'b%_yz')}%', '!'),
+      "moo": not(0),
+    }), r'''"foo" like E'a\'b!%!_yz%' escape '!' and "moo"!=0''');
   });
 
   test("sqlWhereBy order", () {
