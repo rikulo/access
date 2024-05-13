@@ -1,5 +1,9 @@
 # Changes
 
+**3.6.1**
+
+* Fix #10: assume `like()`'s pattern was encoded properly if escape is specified
+
 **3.6.0**
 
 * `like` and `notLike` added for generating the LIKE clause for `queryBy` and `queryAnyBy`
