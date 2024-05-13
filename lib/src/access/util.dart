@@ -71,6 +71,10 @@ NotCondition<InCondition> notIn(Iterable? value)
 /// Assume text is 'a%b', then it generates
 /// 
 ///     ...like 'a!%b%' escape '!'
+///
+/// Also note, if [escape] is specified, [pattern] is assumed to be
+/// encoded properly. That is, [sqlWhereBy] won't encode it again.
+/// See #10.
 /// 
 /// > See also [not] and [notIn].
 LikeCondition like(String pattern, [String? escape])
@@ -269,11 +273,16 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [String? append]) {
     _appendField(sql, name);
     if (value is LikeCondition) {
       if (negate) sql.write(' not');
-      sql..write(' like ')..write(cvter.encode(value.pattern, null));
+      sql.write(' like ');
 
+      //#10: don't encode again if escape is specified
+      //i.e., assume pattern is encoded properly.
       final escape = value.escape;
       if (escape != null)
-        sql..write(' escape \'')..write(escape)..write("'");
+        sql..write("E'")..write(value.pattern)
+          ..write("' escape '")..write(escape)..write("'");
+      else
+        sql.write(cvter.encode(value.pattern, null));
 
     } else if (value != null) {
       if (negate) sql.write('!');

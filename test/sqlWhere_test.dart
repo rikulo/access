@@ -18,11 +18,11 @@ void main() {
       "a": null,
       "b": not(null),
       "c": 12,
-      "d": not("abc"),
+      "d": not("ab'c"),
       "e": notNull,
       'f': not(12),
-      }), '''
-"a" is null and "b" is not null and "c"=12 and "d"!= E'abc'  and "e" is not null and "f"!=12''');
+      }), r'''
+"a" is null and "b" is not null and "c"=12 and "d"!= E'ab\'c'  and "e" is not null and "f"!=12''');
 
     expect(sqlWhereBy({
       "foo": 5,
@@ -53,7 +53,11 @@ void main() {
 
     expect(sqlWhereBy({
       "foo": like('${encodeTextInLike('ab%yz')}%', '!'),
-    }), '"foo" like  E\'ab!%yz%\'  escape \'!\'');
+    }), '"foo" like E\'ab!%yz%\' escape \'!\'');
+
+    expect(sqlWhereBy({
+      "foo": like('${encodeTextInLike('a\'b%yz')}%', '!'),
+    }), '"foo" like E\'a\\\'b!%yz%\' escape \'!\'');
   });
 
   test("sqlWhereBy order", () {
