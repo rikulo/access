@@ -460,7 +460,7 @@ class DBAccess extends PostgresqlAccess {
       if (shortcut != null) sql..write(' ')..write(shortcut);
     }
 
-    if (whereClause != null) {
+    if (whereClause != null && whereClause.trim().isNotEmpty) {
       if (!_reNoWhere.hasMatch(whereClause))
         sql.write(' where');
       sql..write(' ')..write(whereClause);

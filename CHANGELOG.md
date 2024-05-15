@@ -1,5 +1,9 @@
 # Changes
 
+**3.6.2**
+
+* Fix: `DBAccess.queryFrom()` accepts an empty string for `whereClause`.
+
 **3.6.1**
 
 * Fix #10: assume `like()`'s pattern was encoded properly if escape is specified
