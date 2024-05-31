@@ -100,6 +100,9 @@ NotCondition<LikeCondition> notLike(String pattern, [String? escape])
 class NotCondition<T> {
   final T value;
   const NotCondition(T this.value);
+
+  @override
+  String toString() => 'not($value)';
 }
 
 /// Used in the `whereValues` of [DBAccess.loadBy], [DBAccess.queryBy],
@@ -107,6 +110,9 @@ class NotCondition<T> {
 class InCondition {
   final Iterable? value;
   InCondition(this.value);
+
+  @override
+  String toString() => 'in($value)';
 }
 
 /// Used in the `whereValues` of [DBAccess.loadBy], [DBAccess.queryBy],
@@ -115,6 +121,9 @@ class LikeCondition {
   final String pattern;
   final String? escape;
   LikeCondition(this.pattern, [this.escape]);
+
+  @override
+  String toString() => 'like($pattern, $escape)';
 }
 
 ///Whether it is [PostgresqlException] about the violation of the given [code].
