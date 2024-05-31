@@ -266,8 +266,6 @@ class DBAccess extends PostgresqlAccess {
 
     final tmPreSlow = _startSql();
     try {
-      _onExecute?.call(sql, values);
-
       final result = await conn.execute(sql, values);
       _checkSlowSql(sql, values);
       return result;
@@ -287,8 +285,6 @@ class DBAccess extends PostgresqlAccess {
   Stream<Row> query(String sql, [values]) {
     if (_closed)
       throw StateError("Closed: ${_getErrorMessage(sql, values)}");
-
-    _onQuery?.call(sql, values);
 
     final controller = StreamController<Row>(),
       tmPreSlow = _startSql();
@@ -470,12 +466,6 @@ class DBAccess extends PostgresqlAccess {
     else if (option == forShare) sql.write(' for share');
     return query(sql.toString(), whereValues);
   }
-  @deprecated
-  Stream<Row> queryWith(Iterable<String>? fields, String otype,
-      String? whereClause, [Map<String, dynamic>? whereValues,
-      String? fromClause, String? shortcut, AccessOption? option])
-  => queryFrom(fields, fromClause ?? otype, whereClause,
-      whereValues, shortcut, option);
   static final
     _reNoWhere = RegExp(r'^\s*(?:order|group|limit|for)', caseSensitive: false),
     _reComplexFrom = RegExp(r'["\s]');
@@ -499,12 +489,6 @@ class DBAccess extends PostgresqlAccess {
       String? shortcut, AccessOption? option])
   => StreamUtil.first(queryFrom(fields, fromClause,
       _limit1(whereClause), whereValues, shortcut, option));
-  @deprecated
-  Future<Row?> queryAnyWith(Iterable<String>? fields, String otype,
-      String? whereClause, [Map<String, dynamic>? whereValues,
-      String? fromClause, String? shortcut, AccessOption? option])
-  => queryAnyFrom(fields, fromClause ?? otype, whereClause,
-      whereValues, shortcut, option);
 
   ///Loads the entity by the given [oid], or null if not found.
   Future<T?> load<T extends Entity>(
@@ -557,52 +541,6 @@ class DBAccess extends PostgresqlAccess {
     row.forEach((String name, value) => data[name] = value);
     assert(data.containsKey(fdOid)); //fdOid is required.
     return bind_(this, data.remove(fdOid) as String, newInstance, data, fields);
-  }
-
-  /// Loads entities while [test] returns true.
-  /// It stops loading if all entities are loaded or [test] returns false.
-  /// 
-  /// Note: the last entity passed to [test] will be in the returned list
-  /// unless you remove it in [test]. (that is, `do ... while(test())`)
-  /// 
-  /// * [test] - it is called to test if the loading shall continue (true).
-  /// When [test] is called, `lastLoaded` is the entity to test, and `loaded`
-  /// is a list of all loaded entities, *including* `lastLoaded`
-  /// (at the end of `loaded`).
-  /// Though rare, you can modify `loaded` in [test], such as removing
-  /// `lastLoaded` from `loaded`.
-  /// 
-  /// * [whereClause] - if null, no where clause is generated.
-  /// That is, the whole table will be loaded.
-  /// Note: it shall not include `where`.
-  /// Example: `"$fdType" = 23`
-  /// * [fromClause] - if null, the entity's table is assumed.
-  /// Note: it shall not include `from`.
-  /// Example: `"$otTask" inner join "$otGrant"`
-  /// * [shortcut] - the table shortcut to prefix the column names.
-  /// Default: none. Useful if you joined other tables in [fromClause].
-  /// Note: [shortcut] is case insensitive.
-  @deprecated
-  Future<List<T>> loadWhile<T extends Entity>(
-      Iterable<String>? fields, T newInstance(String oid),
-      bool test(T lastLoaded, List<T> loaded),
-      String? whereClause, [Map<String, dynamic>? whereValues,
-      String? fromClause, String? shortcut, AccessOption? option]) async {
-
-    final loaded = <T>[];
-
-    await for (final row in queryFrom(
-        fields != null ? (LinkedHashSet.from(fields)..add(fdOid)): null,
-        fromClause ?? newInstance('*').otype,
-        whereClause, whereValues, shortcut, option)) {
-
-      final e = toEntityNS(row, fields, newInstance);
-      loaded.add(e); //always add (i.e., add before test)
-      if (!test(e, loaded))
-        break;
-    }
-
-    return loaded;
   }
 
   /** Loads the first entity of the given criteria, or returns null if none.

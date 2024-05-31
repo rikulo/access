@@ -34,10 +34,6 @@ part of access;
 Pool? configure(Pool pool, {Duration? slowSqlThreshold,
     void onSlowSql(Map<String, dynamic> dataset, Duration timeSpent, String sql, dynamic values)?,
     FutureOr onPreSlowSql(Connection conn, Map<String, dynamic> dataset, String message)?,
-    @deprecated
-    void onQuery(String sql, dynamic values)?,
-    @deprecated
-    void onExecute(String sql, dynamic values)?,
     String getErrorMessage(String sql, dynamic values)?,
     bool shallLogError(DBAccess access, String sql, Object ex)?}) {
   final p = _pool;
@@ -46,8 +42,6 @@ Pool? configure(Pool pool, {Duration? slowSqlThreshold,
       _defaultSlowSqlThreshold = slowSqlThreshold);
   _onSlowSql = onSlowSql ?? _defaultOnSlowSql;
   _onPreSlowSql = onPreSlowSql;
-  _onQuery = onQuery;
-  _onExecute = onExecute;
   _getErrorMessage = getErrorMessage ?? _defaultErrorMessage;
   _shallLogError = shallLogError ?? _defaultShallLog;
   return p;
@@ -65,7 +59,6 @@ late void Function(Map<String, dynamic> dataset, Duration timeSpent, String sql,
   _onSlowSql;
 FutureOr Function(Connection conn, Map<String, dynamic> dataset, String message)?
   _onPreSlowSql;
-void Function(String sql, dynamic values)? _onQuery, _onExecute;
 late String Function(String sql, dynamic values) _getErrorMessage;
 String _defaultErrorMessage(String sql, dynamic values) => sql;
 
