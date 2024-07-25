@@ -14,6 +14,7 @@ void main() {
       (['f1', 'f1+f2'], '"f1",f1+f2'),
       ([], '1'),
       (null, '*'),
+      (['*'], '*'),
       (['count(*)'], 'count(*)'),
       (['distinct "user"'], 'distinct "user"'),
     ];

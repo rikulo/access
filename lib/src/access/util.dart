@@ -211,7 +211,7 @@ void _appendField(StringBuffer sql, String field, [String? shortcut]) {
     sql..write('"')..write(field)..write('"');
   }
 }
-final _reExpr = RegExp(r'(?:^[0-9]|[("+|])');
+final _reExpr = RegExp(r'(?:^[0-9]|[("+|*])');
 
 /// Returns the where criteria (without where) by concatenating all values
 /// found in [whereValues] with *and*.
