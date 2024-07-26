@@ -70,5 +70,14 @@ void main() {
     expect(sqlWhereBy({
       "": 'order by t',
     }), ' order by t');
+
+    expect(sqlWhereBy({
+      "": 'order by t',
+    }, 'limit 1'), ' order by t limit 1');
+
+    expect(sqlWhereBy({
+      "": 'order by t limit 5',
+      "a": 12,
+    }, 'limit 1'), '"a"=12 order by t limit 5');
   });
 }

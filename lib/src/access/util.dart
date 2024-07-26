@@ -248,7 +248,10 @@ String sqlWhereBy(Map<String, dynamic> whereValues, [String? append]) {
   whereValues.forEach((name, value) {
     if (name.isEmpty) { //value is a SQL fragment to append
       assert(value is String);
-      append = append == null ? value.toString(): '$value $append';
+      final tv = value.toString();
+      append = append == null
+          || (append == 'limit 1' && _reLimit.hasMatch(tv)) ?
+            tv: '$tv $append';
       return;
     }
 
