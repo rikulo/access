@@ -408,13 +408,15 @@ class DBAccess extends PostgresqlAccess {
   /// See [sqlWhereBy] for details.
   /// * [option] - whether to use [forUpdate], [forShare] or null.
   Stream<Row> queryBy(Iterable<String>? fields, String fromClause,
-    Map<String, dynamic> whereValues, [AccessOption? option])
-  => _queryBy(fields, fromClause, whereValues, option, null);
+      Map<String, dynamic> whereValues,
+      [String? shortcut, AccessOption? option])
+  => _queryBy(fields, fromClause, whereValues, shortcut, option, null);
 
   Stream<Row> _queryBy(Iterable<String>? fields, String fromClause,
-    Map<String, dynamic> whereValues, AccessOption? option, String? append)
+      Map<String, dynamic> whereValues, String? shortcut,
+      AccessOption? option, String? append)
   => queryFrom(fields, fromClause, sqlWhereBy(whereValues, append),
-      whereValues, null, option);
+      whereValues, shortcut, option);
 
   /// Queries [fields] of [fromClause] for the criteria specified in
   /// [whereValues] (AND-ed together),
@@ -422,8 +424,10 @@ class DBAccess extends PostgresqlAccess {
   ///
   /// > Refer to [queryBy] for details.
   Future<Row?> queryAnyBy(Iterable<String>? fields, String fromClause,
-      Map<String, dynamic> whereValues, [AccessOption? option])
-  => StreamUtil.first(_queryBy(fields, fromClause, whereValues, option, "limit 1"));
+      Map<String, dynamic> whereValues,
+      [String? shortcut, AccessOption? option])
+  => StreamUtil.first(_queryBy(fields, fromClause, whereValues,
+      shortcut, option, "limit 1"));
 
   /// Queries [fields] from [fromClause] for the criteria specified in
   /// [whereClause] and [whereValues].

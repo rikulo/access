@@ -1,8 +1,9 @@
 # Changes
 
-**3.7.0**
+**3.7.1**
 
 * The `values` paramter of `DBAccess.query` and `execute` must be `Map`.
+* `DBAccess.queryBy` and `queryAnyBy` support the `shortcut` parameter.
 
 **3.6.2**
 
