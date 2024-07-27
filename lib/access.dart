@@ -260,7 +260,7 @@ class DBAccess extends PostgresqlAccess {
   /// Queues a command for execution, and when done, returns the number of rows
   /// affected by the SQL command.
   @override
-  Future<int> execute(String sql, [values]) async {
+  Future<int> execute(String sql, [Map? values]) async {
     if (_closed)
       throw StateError("Closed: ${_getErrorMessage(sql, values)}");
 
@@ -282,7 +282,7 @@ class DBAccess extends PostgresqlAccess {
 
   /// Queue a SQL query to be run, returning a [Stream] of rows.
   @override
-  Stream<Row> query(String sql, [values]) {
+  Stream<Row> query(String sql, [Map? values]) {
     if (_closed)
       throw StateError("Closed: ${_getErrorMessage(sql, values)}");
 
@@ -392,7 +392,7 @@ class DBAccess extends PostgresqlAccess {
   DateTime? _sqlStartAt;
 
   ///Returns the first result, or null if not found.
-  Future<Row?> queryAny(String sql, [values])
+  Future<Row?> queryAny(String sql, [Map? values])
   => StreamUtil.first(query(_limit1NS(sql), values));
 
   /// Queries [fields] from [fromClause] for the criteria specified in

@@ -1,5 +1,9 @@
 # Changes
 
+**3.7.0**
+
+* The `values` paramter of `DBAccess.query` and `execute` must be `Map`.
+
 **3.6.2**
 
 * Fix: `DBAccess.queryFrom()` accepts an empty string for `whereClause`.
