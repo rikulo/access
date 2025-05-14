@@ -332,7 +332,7 @@ String? _limit1(String? sql, {required bool selectRequired})
 String _limit1NS(String sql, {required bool selectRequired})
 => (selectRequired && !_reSelect.hasMatch(sql))
   || _reLimit.hasMatch(sql) ? sql: '$sql limit 1';
-final _reLimit = RegExp(r'(?:\slimit\s|;)', caseSensitive: false),
+final _reLimit = RegExp(r'(?:\blimit\s|;)', caseSensitive: false),
   _reSelect = RegExp(r'^\s*select\s', caseSensitive: false);
 
 Future _invokeTask(FutureOr task()) async {
