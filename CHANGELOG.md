@@ -1,6 +1,6 @@
 # Changes
 
-**3.7.3**
+**3.7.2**
 
 * Improves the generation of limit 1 for `queryAnyFrom`
 
