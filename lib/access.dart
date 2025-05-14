@@ -393,7 +393,7 @@ class DBAccess extends PostgresqlAccess {
 
   ///Returns the first result, or null if not found.
   Future<Row?> queryAny(String sql, [Map? values])
-  => StreamUtil.first(query(_limit1NS(sql), values));
+  => StreamUtil.first(query(_limit1NS(sql, selectRequired: true), values));
 
   /// Queries [fields] from [fromClause] for the criteria specified in
   /// [whereValues] (AND-ed together).
@@ -492,7 +492,9 @@ class DBAccess extends PostgresqlAccess {
       String? whereClause, [Map<String, dynamic>? whereValues,
       String? shortcut, AccessOption? option])
   => StreamUtil.first(queryFrom(fields, fromClause,
-      _limit1(whereClause), whereValues, shortcut, option));
+      _limit1(whereClause, selectRequired: false)
+      ?? (_reLimit.hasMatch(fromClause) ? null: 'limit 1'),
+      whereValues, shortcut, option));
 
   ///Loads the entity by the given [oid], or null if not found.
   Future<T?> load<T extends Entity>(
@@ -571,7 +573,9 @@ class DBAccess extends PostgresqlAccess {
 
     final row = await StreamUtil.first(queryFrom(fds,
         fromClause ?? newInstance('*').otype,
-        _limit1(whereClause), whereValues, shortcut, option));
+        _limit1(whereClause, selectRequired: false)
+        ?? (fromClause != null && _reLimit.hasMatch(fromClause) ? null: 'limit 1'),
+        whereValues, shortcut, option));
       return toEntity(row, fields, newInstance);
   }
 

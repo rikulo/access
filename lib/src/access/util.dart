@@ -324,11 +324,14 @@ void Function(FutureOr Function(DBAccess access) command, int accessCount)?
   // It means checking [accessCount] before calling [access] won't be reliable.
 
 /// Put "limit 1" into [sql] if not there.
-String? _limit1(String? sql)
-=> sql == null ? null: _limit1NS(sql);
+///
+/// - [selectRequired] if true, [sql] must start with `select`
+String? _limit1(String? sql, {required bool selectRequired})
+=> sql == null ? null: _limit1NS(sql, selectRequired: selectRequired);
 
-String _limit1NS(String sql)
-=> !_reSelect.hasMatch(sql) || _reLimit.hasMatch(sql) ? sql: '$sql limit 1';
+String _limit1NS(String sql, {required bool selectRequired})
+=> (selectRequired && !_reSelect.hasMatch(sql))
+  || _reLimit.hasMatch(sql) ? sql: '$sql limit 1';
 final _reLimit = RegExp(r'(?:\slimit\s|;)', caseSensitive: false),
   _reSelect = RegExp(r'^\s*select\s', caseSensitive: false);
 

@@ -1,5 +1,9 @@
 # Changes
 
+**3.7.3**
+
+* Improves the generation of limit 1 for `queryAnyFrom`
+
 **3.7.1**
 
 * The `values` paramter of `DBAccess.query` and `execute` must be `Map`.
