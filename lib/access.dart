@@ -59,13 +59,15 @@ Future<T> access<T>(FutureOr<T> command(DBAccess access)) async {
     final result = await command(access);
 
     closing = true;
-    if (!access._closed)
-      if (access.rollingback == false) {
+    if (!access._closed) {
+      final rollingback = access.rollingback;
+      if (rollingback == false) {
         await access._commit();
       } else {
-        error = access.rollingback; //yes, use it as an error
+        error = rollingback; //yes, use it as an error
         await access._rollback();
       }
+    }
 
     return result;
 
@@ -157,35 +159,29 @@ class DBAccess extends PostgresqlAccess {
     }
   }
 
-  /**
-   * A flag or a cause to indicate the access (aka., the transaction) shall
-   * be rolled back at the end.
-   * 
-   * By default, [access] rolls back
-   * only if an exception is thrown. To force it roll back, you
-   * can set this flag to true or a value other than false and null.
-   * 
-   * Note: [access] will still return the return value of the command function
-   * if a flag is set.
-   * 
-   * Note: if a value other than false and null is set,
-   * the callback passed to [afterRollback] will be called with this value.
-   * 
-   * Note: if null is assigned, *false* will be stored instead.
-   * In other words, it is never null. You can test if rollingback is set
-   * as follows:
-   * 
-   *     if (access.rollingback != false)...
-   */
-  get rollingback => _rollingback;
-  /** Sets whether to roll back the access (aka., the transaction).
-   * 
-   * Note: if null is assigned, *false* will be stored instead.
-   */
-  set rollingback(rollingback) {
-    _rollingback = rollingback ?? false;
+  /// A flag or a cause to indicate the access (aka., the transaction) shall
+  /// be rolled back at the end.
+  /// 
+  /// Default: false.
+  /// 
+  /// To force [access] rolling back, you can set this flag to any value
+  /// other than false (in addition to throwing an exception).
+  /// 
+  /// If a value other than false is set (such as `true`),
+  /// the callback passed to [afterRollback] will be called with this value.
+  /// 
+  /// Note: [access] will still return the return value of the command function
+  /// if a flag is set.
+  /// 
+  /// You can test if rollingback is set as follows:
+  /// 
+  ///     if (access.isRollingback) ...
+  Object get rollingback => _rollingback;
+  /// Sets whether to roll back the access (aka., the transaction).
+  void set rollingback(Object rollingback) {
+    _rollingback = rollingback;
   }
-  dynamic _rollingback = false;
+  Object _rollingback = false;
 
   /// Whether this transaction was marked as rollback.
   /// It actually returns `rollingback != false`.

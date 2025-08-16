@@ -1,5 +1,9 @@
 # Changes
 
+**3.8.0**
+
+* [Access.rollingback] can't be null.
+
 **3.7.2**
 
 * Improves the generation of limit 1 for `queryAnyFrom`
