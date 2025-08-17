@@ -256,7 +256,7 @@ class DBAccess extends PostgresqlAccess {
   /// Queues a command for execution, and when done, returns the number of rows
   /// affected by the SQL command.
   @override
-  Future<int> execute(String sql, [Map? values]) async {
+  Future<int> execute(String sql, [Map<String, dynamic>? values]) async {
     if (_closed)
       throw StateError("Closed: ${_getErrorMessage(sql, values)}");
 
@@ -278,7 +278,7 @@ class DBAccess extends PostgresqlAccess {
 
   /// Queue a SQL query to be run, returning a [Stream] of rows.
   @override
-  Stream<Row> query(String sql, [Map? values]) {
+  Stream<Row> query(String sql, [Map<String, dynamic>? values]) {
     if (_closed)
       throw StateError("Closed: ${_getErrorMessage(sql, values)}");
 
@@ -369,7 +369,7 @@ class DBAccess extends PostgresqlAccess {
   }
 
   /// Checks if the execution is taking too long. If so, logs it.
-  void _checkSlowSql(String sql, dynamic values) {
+  void _checkSlowSql(String sql, Map<String, dynamic>? values) {
     final sqlStartAt = _sqlStartAt;
     if (sqlStartAt != null) {
       final spent = DateTime.now().difference(sqlStartAt),
@@ -388,7 +388,7 @@ class DBAccess extends PostgresqlAccess {
   DateTime? _sqlStartAt;
 
   ///Returns the first result, or null if not found.
-  Future<Row?> queryAny(String sql, [Map? values])
+  Future<Row?> queryAny(String sql, [Map<String, dynamic>? values])
   => StreamUtil.first(query(_limit1NS(sql, selectRequired: true), values));
 
   /// Queries [fields] from [fromClause] for the criteria specified in

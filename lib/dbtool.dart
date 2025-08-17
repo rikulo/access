@@ -126,6 +126,9 @@ SqlType Char(int length, {String constraint = notNull})
 SqlType Timestamptz({String constraint = notNull})
 => SqlType("timestamptz(3)", constraint: constraint);
 
+SqlType Timestamptz0({String constraint = notNull})
+=> SqlType("timestamptz(0)", constraint: constraint);
+
 SqlType Integer({String constraint = notNull})
 => SqlType("integer", constraint: constraint);
 
@@ -158,6 +161,15 @@ SqlType Jsonb({String constraint = notNull})
 
 SqlType Tsvector({String constraint = notNull})
 => SqlType("tsvector", constraint: constraint);
+
+SqlType TextArray({String constraint = notNull})
+=> SqlType("text[]", constraint: constraint);
+
+SqlType IntegerArray({String constraint = notNull})
+=> SqlType("integer[]", constraint: constraint);
+
+SqlType SmallintArray({String constraint = notNull})
+=> SqlType("smallint[]", constraint: constraint);
 
 /// A reference that refers to a record from another table.
 /// It creates a foreign-key constraint to ensure the relationship.
@@ -203,7 +215,7 @@ class _SqlType implements SqlType {
   final String type;
   final String constraint;
 
-  _SqlType(String this.type, {String this.constraint = notNull});
+  const _SqlType(String this.type, {String this.constraint = notNull});
 
   @override
   String toSqlString() => "$type $constraint";
@@ -214,7 +226,7 @@ class _SqlType implements SqlType {
 class _DefineType implements SqlType {
   final String definition;
 
-  _DefineType(String this.definition);
+  const _DefineType(String this.definition);
 
   @override
   String toSqlString() => definition;
@@ -231,7 +243,7 @@ class _RefType implements ReferenceType {
   @override
   final String cascade;
 
-  _RefType(String this.otype, String this.constraint, String this.cascade,
+  const _RefType(String this.otype, String this.constraint, String this.cascade,
       String this.column);
 
   @override
