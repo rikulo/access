@@ -14,12 +14,14 @@ void main() {
       (['f1', 'f1+f2'], '"f1",f1+f2'),
       ([], '1'),
       (null, '*'),
-      (['*'], '*'),
       (['count(*)'], 'count(*)'),
       (['distinct "user"'], 'distinct "user"'),
     ];
 
     for (final (cols, result) in cases)
       expect(sqlColumns(cols), result);
+
+    for (final col in const ['*', '1', 't1.ctlid'])
+      expect(sqlColumns([col]), col);
   });
 }
