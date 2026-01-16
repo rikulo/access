@@ -265,12 +265,11 @@ class DBAccess extends PostgresqlAccess {
       final result = await conn.execute(sql, values);
       _checkSlowSql(sql, values);
       return result;
-
     } catch (ex, st) {
       if (_shallLogError(this, sql, ex))
         _logger.severe("Failed to execute: ${_getErrorMessage(sql, values)}", ex, st);
-      rethrow;
 
+      rethrow;
     } finally {
       tmPreSlow?.cancel();
     }
@@ -278,29 +277,23 @@ class DBAccess extends PostgresqlAccess {
 
   /// Queue a SQL query to be run, returning a [Stream] of rows.
   @override
-  Stream<Row> query(String sql, [Map<String, dynamic>? values]) {
-    if (_closed)
-      throw StateError("Closed: ${_getErrorMessage(sql, values)}");
+  Stream<Row> query(String sql, [Map<String, dynamic>? values]) async* {
+    if (_closed) throw StateError("Closed: ${_getErrorMessage(sql, values)}");
 
-    final controller = StreamController<Row>(),
-      tmPreSlow = _startSql();
-    conn.query(sql, values)
-      .listen((data) => controller.add(data),
-        onError: (Object ex, StackTrace st) {
-          controller.addError(ex, st);
-          tmPreSlow?.cancel();
+    final tmPreSlow = _startSql();
+    try {
+      await for (final row in conn.query(sql, values)) {
+        yield row;
+      }
+      _checkSlowSql(sql, values);
+    } catch (ex, st) {
+      if (_shallLogError(this, sql, ex))
+        _logger.severe("Failed to query: ${_getErrorMessage(sql, values)}", ex, st);
 
-          if (_shallLogError(this, sql, ex))
-            _logger.severe("Failed to query: ${_getErrorMessage(sql, values)}", ex, st);
-        },
-        onDone: () {
-          controller.close();
-
-          _checkSlowSql(sql, values);
-          tmPreSlow?.cancel();
-        },
-        cancelOnError: true);
-    return controller.stream;
+      rethrow;
+    } finally {
+      tmPreSlow?.cancel();
+    }
   }
 
   /// Called before executing a SQL statement.
