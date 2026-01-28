@@ -1,5 +1,10 @@
 # Changes
 
+**3.8.3**
+
+* Self-protection for PostgreSQL crashes that prevent sending a rollback
+* `isDBSevereError()` added
+
 **3.8.0**
 
 * [Access.rollingback] can't be null.

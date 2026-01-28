@@ -138,6 +138,14 @@ bool isForeignKeyViolation(ex) => isViolation(ex, pgForeignKeyViolation);
 ///Whether it is [PostgresqlException] about the violation of foreign keys.
 bool isNotNullViolation(ex) => isViolation(ex, pgNotNullViolation);
 
+///Whether it is a severe error, such as crashed, out-of-memory and so on.
+bool isDBSevereError(ex)
+=> ex is PostgresqlException
+  && (const {'08P01', '57P01'}.contains(ex.serverMessage?.code)
+      || const {peConnectionTimeout, peConnectionClosed,
+          peConnectionFailed, pePoolStopped,
+          pgOutOfMemory}.contains(ex.exception));
+
 ///Collects the first column of [Row] into a list.
 List firstColumns(Iterable<Row> rows) {
   final result = [];

@@ -16,6 +16,9 @@ import "package:rikulo_commons/async.dart";
 
 export "package:postgresql2/postgresql.dart"
   show Connection, PostgresqlException, Row;
+import "package:postgresql2/constants.dart"
+  show peConnectionTimeout, peConnectionClosed,
+       peConnectionFailed, pePoolStopped;
 
 part "src/access/util.dart";
 part "src/access/configure.dart";
@@ -74,7 +77,7 @@ Future<T> access<T>(FutureOr<T> command(DBAccess access)) async {
   } catch (ex) {
     error = ex;
     if (access != null && !access._closed && !closing)
-      await access._rollbackSafely();
+      await access._rollbackSafely(ex);
     rethrow;
 
   } finally {
@@ -151,7 +154,7 @@ class DBAccess extends PostgresqlAccess {
       }
     } catch (ex) {
       error = ex;
-      await _rollbackSafely();
+      await _rollbackSafely(ex);
       rethrow;
     } finally {
       _close(error); //never throws an exception
@@ -658,9 +661,10 @@ class DBAccess extends PostgresqlAccess {
   //Rollback
   Future<int> _rollback() => execute('rollback');
 
-  Future<int> _rollbackSafely()
+  Future<int> _rollbackSafely(Object ex)
   => _rollback()
-    .timeout(const Duration(seconds: 15), onTimeout: _asZero) //simply ignore
+    .timeout(isDBSevereError(ex) ? const Duration(seconds: 5):
+        const Duration(seconds: 30), onTimeout: _asZero) //simply ignore
     .catchError(_asZero);
 
   static int _asZero([Object? ex]) => 0;
