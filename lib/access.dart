@@ -74,7 +74,7 @@ Future<T> access<T>(FutureOr<T> command(DBAccess access)) async {
   } catch (ex) {
     error = ex;
     if (access != null && !access._closed && !closing)
-      await InvokeUtil.invokeSafely(access._rollback);
+      await access._rollbackSafely();
     rethrow;
 
   } finally {
@@ -151,7 +151,7 @@ class DBAccess extends PostgresqlAccess {
       }
     } catch (ex) {
       error = ex;
-      await InvokeUtil.invokeSafely(_rollback);
+      await _rollbackSafely();
       rethrow;
     } finally {
       _close(error); //never throws an exception
@@ -652,9 +652,16 @@ class DBAccess extends PostgresqlAccess {
   static _firstCol(Row row) => row[0];
 
   //Begins a transaction
-  Future _begin() => execute('begin');
+  Future<int> _begin() => execute('begin');
   //Commits
-  Future _commit() => execute('commit');
+  Future<int> _commit() => execute('commit');
   //Rollback
-  Future _rollback() => execute('rollback');
+  Future<int> _rollback() => execute('rollback');
+
+  Future<int> _rollbackSafely()
+  => _rollback()
+    .timeout(const Duration(seconds: 15), onTimeout: _asZero) //simply ignore
+    .catchError(_asZero);
+
+  static int _asZero([Object? ex]) => 0;
 }
