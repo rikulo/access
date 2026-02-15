@@ -13,7 +13,10 @@ import "access.dart";
 part "src/dbtool/dbtool_create.dart";
 part "src/dbtool/dbtool_purge.dart";
 
-const String notNull = "not null", nullable = "null",
+const String notNull = "not null",
+  collateC = 'collate "C"',
+  notNullCollateC = '$collateC not null',
+  nullable = "null",
   onDeleteCascade = "on delete cascade",
   onDeleteSetNull = "on delete set null";
 
@@ -173,7 +176,7 @@ SqlType SmallintArray({String constraint = notNull})
 
 /// A reference that refers to a record from another table.
 /// It creates a foreign-key constraint to ensure the relationship.
-SqlType Reference(String otype, {String constraint = notNull,
+SqlType Reference(String otype, {String constraint = notNullCollateC,
     String cascade = "", String column = fdOid})
 => ReferenceType(otype, constraint: constraint,
       cascade: cascade, column: column);
@@ -189,11 +192,14 @@ SqlType PrimaryKey(Iterable<String> columns) => PrimaryKeyType(columns);
 /// other key(s).
 /// 
 /// * [otype] - it is useless but for documentation purpose
-SqlType UnboundReference({String? otype, String constraint = notNull})
+SqlType UnboundReference({String? otype, String constraint = notNullCollateC})
 => SqlType("text", constraint: constraint);
 
 SqlType Oid()
-=> SqlType("text", constraint: 'not null primary key');
+=> SqlType("text", constraint: '$collateC not null primary key');
+
+SqlType Id()
+=> SqlType("text", constraint: '$collateC not null');
 
 SqlType AutoOid() => SqlType('bigserial', constraint: 'not null primary key');
 

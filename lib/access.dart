@@ -358,7 +358,7 @@ class DBAccess extends PostgresqlAccess {
       await onPreSlowSql(conn, dataset, msg);
 
     } catch (ex, st) {
-      _logger.warning("Unable to onPreSlowSql", ex, st);
+      _logger.warning("Failed to call onPreSlowSql", ex, st);
     } finally {
       conn?.close();
     }
