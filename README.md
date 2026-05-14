@@ -1,6 +1,6 @@
 # Access
 
-A simple database utility for the [entity](https://github.com/rikulo/entity) library.
+A simple database utility for the [entity](https://github.com/rikulo/entity) library and PostgreSQL.
 
 * [API Reference](https://pub.dev/documentation/access/latest/)
 * [Github Repos](https://github.com/rikulo/access)
@@ -14,10 +14,10 @@ A simple database utility for the [entity](https://github.com/rikulo/entity) lib
       ...
       await access.execute('update...');
     });
-    //transactions ends here; roll back if an uncaught exception is thrown
+    //transaction ends here; roll back if an uncaught exception is thrown
 
 ## Who Uses
 
 * [Quire](https://quire.io) - a simple, collaborative, multi-level task management tool.
-* [Keikai](https://keikai.io) - a sophisticated spreadsheet for big data
+* [Keikai](https://keikai.io) - a sophisticated spreadsheet for big data.
 * [Ottava](https://ottava.io) - a no-code SaaS platform simplifying data management, chart creation, and data analysis.

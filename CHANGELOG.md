@@ -1,8 +1,12 @@
 # Changes
 
+**3.8.4**
+
+* Fix: isDBSevereError mis-routed pgOutOfMemory to the wrong set
+
 **3.8.3**
 
-* Self-protection for PostgreSQL crashes that prevent sending a rollback
+* Added self-protection against PostgreSQL crashes that prevent sending a rollback
 * `isDBSevereError()` added
 
 **3.8.0**
@@ -15,7 +19,7 @@
 
 **3.7.1**
 
-* The `values` paramter of `DBAccess.query` and `execute` must be `Map`.
+* The `values` parameter of `DBAccess.query` and `execute` must be `Map`.
 * `DBAccess.queryBy` and `queryAnyBy` support the `shortcut` parameter.
 
 **3.6.2**
@@ -150,12 +154,12 @@ Also, the task can return a `Future` instance.
 
 **0.11.0**
 
-* Use named paramters instead of positional parameters for declaring types
+* Use named parameters instead of positional parameters for declaring types
 * The column that `Reference()` references can be specified.
 
 **0.10.1**
 
-* `afterComment()` and `afterRollback()` can return an optional Future instance
+* `afterCommit()` and `afterRollback()` can return an optional Future instance
 
 **0.10.0**
 
