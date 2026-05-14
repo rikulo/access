@@ -32,21 +32,20 @@ part "src/access/configure.dart";
 int get accessCount => _nAccess;
 int _nAccess = 0;
 
-/** Executes a command within a transaction.
- * 
- *    access((DBAccess access) async {
- *      await for (final row in await access.query('select ...')) {
- *        ...
- *      }
- *      ...
- *      await access.execute('update...');
- *    });
- *    //The transaction ends here. It commits if success,
- *    //Or, rolls back if an exception is thrown or [DBAccess.rollingback]
- *    //is set to a value other than false and null.
- *
- * It returns what was returned by [command].
- */
+/// Executes a command within a transaction.
+///
+///    access((DBAccess access) async {
+///      await for (final row in await access.query('select ...')) {
+///        ...
+///      }
+///      ...
+///      await access.execute('update...');
+///    });
+///    //The transaction ends here. It commits if success,
+///    //Or, rolls back if an exception is thrown or [DBAccess.rollingback]
+///    //is set to a value other than false and null.
+///
+/// It returns what was returned by [command].
 Future<T> access<T>(FutureOr<T> command(DBAccess access)) async {
   Object? error;
   bool closing = false;
@@ -201,10 +200,12 @@ class DBAccess extends PostgresqlAccess {
   => _dataset ?? (_dataset = MapUtil.auto<String, dynamic>(
           () => _dataset = HashMap<String, dynamic>()));
 
-  /** Adds a task that will be executed after the transaction is committed
-   * successfully.
-   * Note: [task] will be executed directly if the transaction was committed.
-   */
+  /// Adds a task that will be executed after the transaction is committed
+  /// successfully.
+  ///
+  /// Note: [task] runs via `Timer.run` (fire-and-forget) — the caller can't
+  /// await its completion. If the transaction is already committed when
+  /// this is called, [task] still runs asynchronously.
   void afterCommit(FutureOr task()) {
     if (_closed) {
       if (_error == null)
@@ -215,9 +216,11 @@ class DBAccess extends PostgresqlAccess {
     (_afterCommits ??= <_Task>[]).add(task);
   }
 
-  /** Adds a task that will be executed after the transaction is rolled back.
-   * Note: [task] will be executed directly if the transaction was rolled back.
-   */
+  /// Adds a task that will be executed after the transaction is rolled back.
+  ///
+  /// Note: [task] runs via `Timer.run` (fire-and-forget) — the caller can't
+  /// await its completion. If the transaction is already rolled back when
+  /// this is called, [task] still runs asynchronously.
   void afterRollback(FutureOr task(error)) {
     if (_closed) {
       if (_error != null)
@@ -494,19 +497,18 @@ class DBAccess extends PostgresqlAccess {
       [AccessOption? option])
   => loadIfAny(this, oid, newInstance, fields, option);
 
-  /** Loads all entities of the given criteria (never null).
-   * 
-   * * [whereClause] - if null, no where clause is generated.
-   * That is, the whole table will be loaded.
-   * Note: it shall not include `where`.
-   * Example: `"$fdType" = 23`
-   * * [fromClause] - if null, the entity's table is assumed.
-   * Note: it shall not include `from`.
-   * Example: `"$otTask" inner join "$otGrant"`
-   * * [shortcut] - the table shortcut to prefix the column names.
-   * Default: none. Useful if you joined other tables in [fromClause].
-   * Note: [shortcut] is case insensitive.
-   */
+  /// Loads all entities of the given criteria (never null).
+  ///
+  /// * [whereClause] - if null, no where clause is generated.
+  /// That is, the whole table will be loaded.
+  /// Note: it shall not include `where`.
+  /// Example: `"$fdType" = 23`
+  /// * [fromClause] - if null, the entity's table is assumed.
+  /// Note: it shall not include `from`.
+  /// Example: `"$otTask" inner join "$otGrant"`
+  /// * [shortcut] - the table shortcut to prefix the column names.
+  /// Default: none. Useful if you joined other tables in [fromClause].
+  /// Note: [shortcut] is case insensitive.
   Future<List<T>> loadAllWith<T extends Entity>(
       Iterable<String>? fields, T newInstance(String oid),
       String? whereClause, [Map<String, dynamic>? whereValues,
@@ -541,18 +543,17 @@ class DBAccess extends PostgresqlAccess {
     return bind_(this, data.remove(fdOid) as String, newInstance, data, fields);
   }
 
-  /** Loads the first entity of the given criteria, or returns null if none.
-   * 
-   * * [whereClause] - the where clause.
-   * Note: it shall not include `where`.
-   * Example: `"$fdType" = 23`
-   * * [fromClause] - if null, the entity's table is assumed.
-   * Note: it shall not include `from`.
-   * Example: `"$otTask" inner join "$otGrant"`
-   * * [shortcut] - the table shortcut to prefix the column names.
-   * Default: none. Useful if you joined other tables in [fromClause].
-   * Note: [shortcut] is case insensitive.
-   */
+  /// Loads the first entity of the given criteria, or returns null if none.
+  ///
+  /// * [whereClause] - the where clause.
+  /// Note: it shall not include `where`.
+  /// Example: `"$fdType" = 23`
+  /// * [fromClause] - if null, the entity's table is assumed.
+  /// Note: it shall not include `from`.
+  /// Example: `"$otTask" inner join "$otGrant"`
+  /// * [shortcut] - the table shortcut to prefix the column names.
+  /// Default: none. Useful if you joined other tables in [fromClause].
+  /// Note: [shortcut] is case insensitive.
   Future<T?> loadWith<T extends Entity>(
       Iterable<String>? fields, T newInstance(String oid),
       String? whereClause, [Map<String, dynamic>? whereValues,
@@ -571,24 +572,22 @@ class DBAccess extends PostgresqlAccess {
       return toEntity(row, fields, newInstance);
   }
 
-  /** Loads all entities of the given AND criteria.
-   * By AND, we mean it satisfies all values in [whereValues].
-   * 
-   * * [option] - whether to use [forShare], [forUpdate]
-   * or null (default; no lock).
-   */
+  /// Loads all entities of the given AND criteria.
+  /// By AND, we mean it satisfies all values in [whereValues].
+  ///
+  /// * [option] - whether to use [forShare], [forUpdate]
+  /// or null (default; no lock).
   Future<List<T>> loadAllBy<T extends Entity>(
       Iterable<String>? fields, T newInstance(String oid),
       Map<String, dynamic> whereValues, [AccessOption? option])
   => loadAllWith(fields, newInstance,
       sqlWhereBy(whereValues), whereValues, null, null, option);
 
-  /** Loads the first entity of the given AND criteria.
-   * By AND, we mean it satisfies all values in [whereValues].
-   * 
-   * * [option] - whether to use [forShare], [forUpdate]
-   * or null (default; no lock).
-   */
+  /// Loads the first entity of the given AND criteria.
+  /// By AND, we mean it satisfies all values in [whereValues].
+  ///
+  /// * [option] - whether to use [forShare], [forUpdate]
+  /// or null (default; no lock).
   Future<T?> loadBy<T extends Entity>(
       Iterable<String>? fields, T newInstance(String oid),
       Map<String, dynamic> whereValues, [AccessOption? option])
@@ -614,8 +613,8 @@ class DBAccess extends PostgresqlAccess {
 
   /// Inserts the entity specified in data.
   /// Note: all fields found in [data] are written. You have to
-  /// remove unnecessary files by yourself, such as [fdOtype].
-  /// 
+  /// remove unnecessary fields by yourself, such as [fdOtype].
+  ///
   /// * [types] - a map of (field-name, field-type). If specified,
   /// the type of the field will be retrieved from [types], if any.
   /// * [append] - the extra clause to append to the insert statement.

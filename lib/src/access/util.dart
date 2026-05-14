@@ -247,7 +247,7 @@ final _reExpr = RegExp(r'(?:^[0-9]|[("+|*.])');
 ///
 ///     {
 ///       "foo": foo,
-///       "": 'order by value desc limt 5',
+///       "": 'order by value desc limit 5',
 ///     }
 String sqlWhereBy(Map<String, dynamic> whereValues, [String? append]) {
   final cvter = _pool!.typeConverter,

@@ -20,8 +20,7 @@ const String notNull = "not null",
   onDeleteCascade = "on delete cascade",
   onDeleteSetNull = "on delete set null";
 
-/** Builtin name for special actions.
- */
+/// Builtin name for special actions.
 const String
   /// Defines a primary key
   primaryKey = ".primary.",
@@ -203,18 +202,16 @@ SqlType Id()
 
 SqlType AutoOid() => SqlType('bigserial', constraint: 'not null primary key');
 
-/** Copyies the definition from another [source].
- * For example,
- *
- *     COPY: Copy(anotherTable),
- */
+/// Copies the definition from another [source].
+/// For example,
+///
+///     COPY: Copy(anotherTable),
 SqlType Copy(Map<String, SqlType> source) => CopyType(source);
 
-/** Defines [definition], which is generated directly.
- * For example,
- *
- *     DEFINE: Define('primary key("column1", "column2")'),
- */
+/// Defines [definition], which is generated directly.
+/// For example,
+///
+///     DEFINE: Define('primary key("column1", "column2")'),
 SqlType Define(String definition) => _DefineType(definition);
 
 class _SqlType implements SqlType {

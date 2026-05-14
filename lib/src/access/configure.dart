@@ -3,34 +3,33 @@
 // Author: tomyeh
 part of access;
 
-/** Configures the access library.
- * 
- * Note: it must be called with a non-null pool before calling [access]
- * to start a transaction.
- * 
- * * [pool] - the pool used to establish a connection
- * * [slowSql] - how long to consider a query or an execution is slow.
- * It is used to detect if any slow SQL statement. Default: null (no detect).
- * * [onSlowSql] - if specified, it is called when a slow query is detected.
- * The `dataset` argument will be [DBAccess.dataset], so you can use it to
- * pass information to this callback.
- * If not specified, the slow SQL statement will be logged directly.
- * * [onPreSlowSql] = if specified, it is called right before [onSlowSql].
- * And, the `message` argument will carry the information about locks.
- * The implementation can use the `conn` argument to retrieve more from
- * the database. It is a different transaction than the one causing
- * slow SQL. If not specified, nothing happens.
- * The `dataset` argument will be [DBAccess.dataset], so you can use it to
- * store the message, and then retrieve it in [onSlowSql].
- * It is used for debugging purpose.
- * * [getErrorMessage] - if specified, it is called to retrieve
- * a human readable message of the given [sql] and [values] when an error occurs.
- * Default: it returns a string concatenating [sql] and [values].
- * * [shallLogError] - test if the given exception shall be logged.
- * Default: always true. You can turn the log off by returning false.
- * 
- * * It returns the previous pool, if any.
- */
+/// Configures the access library.
+///
+/// Note: it must be called with a non-null pool before calling [access]
+/// to start a transaction.
+///
+/// * [pool] - the pool used to establish a connection
+/// * [slowSql] - how long to consider a query or an execution is slow.
+/// It is used to detect if any slow SQL statement. Default: null (no detect).
+/// * [onSlowSql] - if specified, it is called when a slow query is detected.
+/// The `dataset` argument will be [DBAccess.dataset], so you can use it to
+/// pass information to this callback.
+/// If not specified, the slow SQL statement will be logged directly.
+/// * [onPreSlowSql] = if specified, it is called right before [onSlowSql].
+/// And, the `message` argument will carry the information about locks.
+/// The implementation can use the `conn` argument to retrieve more from
+/// the database. It is a different transaction than the one causing
+/// slow SQL. If not specified, nothing happens.
+/// The `dataset` argument will be [DBAccess.dataset], so you can use it to
+/// store the message, and then retrieve it in [onSlowSql].
+/// It is used for debugging purpose.
+/// * [getErrorMessage] - if specified, it is called to retrieve
+/// a human readable message of the given [sql] and [values] when an error occurs.
+/// Default: it returns a string concatenating [sql] and [values].
+/// * [shallLogError] - test if the given exception shall be logged.
+/// Default: always true. You can turn the log off by returning false.
+///
+/// * It returns the previous pool, if any.
 Pool? configure(Pool pool, {Duration? slowSqlThreshold,
     void onSlowSql(Map<String, dynamic> dataset, Duration timeSpent, String sql, dynamic values)?,
     FutureOr onPreSlowSql(Connection conn, Map<String, dynamic> dataset, String message)?,
