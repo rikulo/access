@@ -141,10 +141,10 @@ bool isNotNullViolation(ex) => isViolation(ex, pgNotNullViolation);
 ///Whether it is a severe error, such as crashed, out-of-memory and so on.
 bool isDBSevereError(ex)
 => ex is PostgresqlException
-  && (const {'08P01', '57P01'}.contains(ex.serverMessage?.code)
-      || const {peConnectionTimeout, peConnectionClosed,
-          peConnectionFailed, pePoolStopped,
-          pgOutOfMemory}.contains(ex.exception));
+  && (const <String> {'08P01', '57P01', pgOutOfMemory}
+        .contains(ex.serverMessage?.code)
+   || const <int> {peConnectionTimeout, peConnectionClosed,
+         peConnectionFailed, pePoolStopped}.contains(ex.exception));
 
 ///Collects the first column of [Row] into a list.
 List firstColumns(Iterable<Row> rows) {
