@@ -1,5 +1,13 @@
 # Changes
 
+**3.9.0**
+
+* The `ex` parameter of `isViolation`, `isUniqueViolation`,
+  `isForeignKeyViolation`, `isNotNullViolation` and `isDBSevereError`
+  must be of type `Object`.
+* The `error` parameter of `DBAccess.afterRollback`'s task must be of
+  type `Object?`.
+
 **3.8.4**
 
 * Fix: isDBSevereError mis-routed pgOutOfMemory to the wrong set
