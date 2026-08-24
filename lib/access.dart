@@ -86,7 +86,7 @@ Future<T> access<T>(FutureOr<T> command(DBAccess access)) async {
   }
 }
 
-typedef FutureOr _ErrorTask(error);
+typedef FutureOr _ErrorTask(Object? error);
 typedef FutureOr _Task();
 
 /// The database access transaction.
@@ -221,7 +221,7 @@ class DBAccess extends PostgresqlAccess {
   /// Note: [task] runs via `Timer.run` (fire-and-forget) — the caller can't
   /// await its completion. If the transaction is already rolled back when
   /// this is called, [task] still runs asynchronously.
-  void afterRollback(FutureOr task(error)) {
+  void afterRollback(FutureOr task(Object? error)) {
     if (_closed) {
       if (_error != null)
         Timer.run(() => _invokeTaskWith(task, _error));
@@ -231,7 +231,7 @@ class DBAccess extends PostgresqlAccess {
     (_afterRollbacks ??= <_ErrorTask>[]).add(task);
   }
 
-  void _close(error) {
+  void _close(Object? error) {
     assert(!_closed);
     _closed = true;
     _error = error;

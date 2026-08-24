@@ -61,5 +61,5 @@ void _scanDeferredRefs(String otype, Map<String, SqlType> table,
   }
 }
 
-bool _isUndefined(ex)
+bool _isUndefined(Object ex)
 => isViolation(ex, pgUndefinedObject) || isViolation(ex, pgUndefinedTable);

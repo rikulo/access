@@ -127,19 +127,19 @@ class LikeCondition {
 }
 
 ///Whether it is [PostgresqlException] about the violation of the given [code].
-bool isViolation(ex, String code)
+bool isViolation(Object ex, String code)
 => ex is PostgresqlException && ex.serverMessage?.code == code;
 
 ///Whether it is [PostgresqlException] about the violation of uniqueness.
 ///It is useful with select-for-update
-bool isUniqueViolation(ex) => isViolation(ex, pgUniqueViolation);
+bool isUniqueViolation(Object ex) => isViolation(ex, pgUniqueViolation);
 ///Whether it is [PostgresqlException] about the violation of foreign keys.
-bool isForeignKeyViolation(ex) => isViolation(ex, pgForeignKeyViolation);
+bool isForeignKeyViolation(Object ex) => isViolation(ex, pgForeignKeyViolation);
 ///Whether it is [PostgresqlException] about the violation of foreign keys.
-bool isNotNullViolation(ex) => isViolation(ex, pgNotNullViolation);
+bool isNotNullViolation(Object ex) => isViolation(ex, pgNotNullViolation);
 
 ///Whether it is a severe error, such as crashed, out-of-memory and so on.
-bool isDBSevereError(ex)
+bool isDBSevereError(Object ex)
 => ex is PostgresqlException
   && (const <String> {'08P01', '57P01', pgOutOfMemory}
         .contains(ex.serverMessage?.code)
